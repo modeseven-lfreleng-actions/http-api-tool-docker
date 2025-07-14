@@ -263,7 +263,7 @@ jobs:
       - name: 'Build Python project'
         id: python-build
         # yamllint disable-line rule:line-length
-        uses: lfreleng-actions/python-build-action@a9d0ef8a2324ac76e798ad6dc306f08b83b5b213 # v0.1.11
+        uses: lfreleng-actions/python-build-action@18710c51c6d86a1788d96bdf391d81ff7b7d8e4d # v0.1.13
 
   # Python tests with matrix strategy (after container pipeline)
   python-tests:
