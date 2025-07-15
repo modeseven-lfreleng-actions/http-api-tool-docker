@@ -182,8 +182,17 @@ def verify(
 
 def _log_action_parameters(config: Dict[str, Any]) -> None:
     """Log the action parameters in a user-friendly format."""
+    from .verifier import HTTPAPITester
+
+    # Create a temporary verifier instance to use sanitization methods
+    temp_verifier = HTTPAPITester()
+
     print("📋 Configuration:")
-    print(f"   URL: {config.get('url', 'Not specified')}")
+    # Sanitize URL for logging
+    url = config.get("url", "Not specified")
+    if url != "Not specified":
+        url = temp_verifier.sanitize_url_for_logging(url)
+    print(f"   URL: {url}")
     print(f"   HTTP Method: {config.get('http_method', 'GET')}")
     print(f"   Service Name: {config.get('service_name', 'API Service')}")
     print(f"   Expected HTTP Code: {config.get('expected_http_code', '200')}")
@@ -197,10 +206,13 @@ def _log_action_parameters(config: Dict[str, Any]) -> None:
         print(f"   Regex Pattern: {config['regex']}")
     if config.get("request_body"):
         body = config["request_body"]
-        truncated_body = body[:100] + ("..." if len(body) > 100 else "")
-        print(f"   Request Body: {truncated_body}")
+        sanitized_body = temp_verifier.sanitize_request_body_for_logging(body, 100)
+        print(f"   Request Body: {sanitized_body}")
     if config.get("request_headers"):
-        print(f"   Custom Headers: {config['request_headers']}")
+        sanitized_headers = temp_verifier.sanitize_headers_for_logging(
+            config["request_headers"]
+        )
+        print(f"   Custom Headers: {sanitized_headers}")
     if config.get("auth_string"):
         print("   Authentication: *** (hidden)")
     max_time = config.get("max_response_time")

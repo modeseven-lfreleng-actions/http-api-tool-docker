@@ -4,6 +4,9 @@
 # PDM
 .pdm-python
 
+# Generated requirements files (created dynamically)
+requirements-docker.txt
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

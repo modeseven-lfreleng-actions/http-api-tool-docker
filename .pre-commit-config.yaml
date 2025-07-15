@@ -105,6 +105,16 @@ repos:
       - id: codespell
         args: ["--ignore-words=.codespell"]
 
+  # Security check for pip install commands in workflows
+  - repo: local
+    hooks:
+      - id: check-pip-security
+        name: Check pip install security (SHA pinning)
+        entry: python3 scripts/check-pip-security.py
+        language: system
+        files: ^\.github/workflows/.*\.(yml|yaml)$
+        description: "Ensure all pip install commands use SHA256 hash pinning for security"
+
   - repo: https://github.com/python-jsonschema/check-jsonschema.git
     rev: 54da05914997e6b04e4db33ed6757d744984c68b  # frozen: 0.33.2
     hooks:

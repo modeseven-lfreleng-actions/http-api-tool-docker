@@ -15,7 +15,7 @@ import sys
 import time
 from io import BytesIO
 from typing import Any, Dict
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 import pycurl
 
@@ -67,10 +67,85 @@ class HTTPAPITester:
                 # Still print the output for debugging purposes
                 print(f"Output: {key}={value}")
 
-    def mask_secret(self, secret: str) -> None:
-        """Mask a secret in GitHub Actions logs."""
-        if secret:
-            print(f"::add-mask::{secret}")
+    def sanitize_url_for_logging(self, url: str) -> str:
+        """Remove credentials from URL for safe logging."""
+        if not url:
+            return url
+
+        try:
+            parsed = urlparse(url)
+            if parsed.username or parsed.password:
+                # Reconstruct URL without credentials
+                sanitized_netloc = parsed.hostname or ""
+                if parsed.port:
+                    sanitized_netloc += f":{parsed.port}"
+
+                sanitized_parsed = parsed._replace(netloc=sanitized_netloc)
+                return urlunparse(sanitized_parsed)
+            return url
+        except Exception:
+            # If URL parsing fails, return a generic placeholder
+            return "[URL parsing failed - credentials may be present]"
+
+    def sanitize_headers_for_logging(self, headers_json: str) -> str:
+        """Remove potentially sensitive headers for safe logging."""
+        if not headers_json:
+            return headers_json
+
+        try:
+            headers = json.loads(headers_json)
+            # List of header names that commonly contain sensitive data
+            sensitive_headers = {
+                "authorization",
+                "auth",
+                "x-api-key",
+                "x-auth-token",
+                "x-access-token",
+                "cookie",
+                "set-cookie",
+                "x-csrf-token",
+                "x-session-token",
+                "bearer",
+                "api-key",
+                "access-token",
+            }
+
+            sanitized = {}
+            for key, value in headers.items():
+                if key.lower() in sensitive_headers:
+                    sanitized[key] = "*** (redacted)"
+                else:
+                    sanitized[key] = value
+
+            return json.dumps(sanitized)
+        except (json.JSONDecodeError, TypeError):
+            return "*** (invalid JSON - potentially sensitive)"
+
+    def sanitize_request_body_for_logging(
+        self, body: str, max_length: int = 100
+    ) -> str:
+        """Safely truncate and display request body for logging."""
+        if not body:
+            return body
+
+        # Check if body looks like it might contain sensitive data
+        sensitive_patterns = [
+            "password",
+            "secret",
+            "token",
+            "key",
+            "auth",
+            "credential",
+        ]
+        body_lower = body.lower()
+
+        if any(pattern in body_lower for pattern in sensitive_patterns):
+            return "*** (request body contains potentially sensitive data)"
+
+        # If body seems safe, truncate it
+        if len(body) > max_length:
+            return body[:max_length] + "... (truncated)"
+        return body
 
     def parse_url(self, url: str) -> Dict[str, Any]:
         """Parse URL and extract components."""
@@ -185,7 +260,22 @@ class HTTPAPITester:
         curl.setopt(pycurl.URL, config["url"])
         curl.setopt(pycurl.TIMEOUT, config["curl_timeout"])
         curl.setopt(pycurl.CUSTOMREQUEST, config["http_method"])
+
+        # Security consideration: pycurl's VERBOSE mode will log credentials in clear text
+        # We only enable it if explicitly requested AND warn the user
         curl.setopt(pycurl.VERBOSE, config["debug"])
+        if config["debug"]:
+            # Check if URL contains credentials
+            url_parts = self.parse_url(config["url"])
+            if url_parts["username"] or config.get("auth_string"):
+                self.log(
+                    "⚠️  Warning: Debug mode enabled with authentication credentials.",
+                    "⚠️",
+                )
+                self.log(
+                    "⚠️  pycurl verbose output may expose credentials in logs.", "⚠️"
+                )
+                self.log("⚠️  Disable debug mode for production use.", "⚠️")
 
         # SSL/TLS options
         if not config["verify_ssl"]:
@@ -228,7 +318,6 @@ class HTTPAPITester:
         if auth_string:
             self.log("Authentication credentials provided", "💬")
             curl.setopt(pycurl.USERPWD, auth_string)
-            self.mask_secret(auth_string)
 
         # Headers
         headers = []
@@ -243,7 +332,11 @@ class HTTPAPITester:
                 custom_headers = json.loads(config["request_headers"])
                 for key, value in custom_headers.items():
                     headers.append(f"{key}: {value}")
-                self.debug_log(f"Added custom headers: {custom_headers}")
+                # Use sanitized headers for debug logging
+                sanitized_headers_json = self.sanitize_headers_for_logging(
+                    config["request_headers"]
+                )
+                self.debug_log(f"Added custom headers: {sanitized_headers_json}")
             except json.JSONDecodeError:
                 raise ValueError("Error: Invalid JSON in request_headers ❌")
 
@@ -255,7 +348,6 @@ class HTTPAPITester:
             body_data = config["request_body"].encode("utf-8")
             curl.setopt(pycurl.POSTFIELDS, body_data)
             curl.setopt(pycurl.POSTFIELDSIZE, len(body_data))
-            self.mask_secret(config["request_body"])
 
         # Response handling
         if (
@@ -402,10 +494,12 @@ class HTTPAPITester:
         # Show what we're about to verify (for GitHub Actions context)
         if os.environ.get("GITHUB_ACTIONS"):
             self.log(f"🎯 Starting test: {config['service_name']}")
-            self.log(f"🌐 Target URL: {config['url']}")
+            self.log(f"🌐 Target URL: {self.sanitize_url_for_logging(config['url'])}")
 
         self.debug_log("URL Debug Info:")
-        self.debug_log(f"  Original URL: '{config['url']}'")
+        self.debug_log(
+            f"  Original URL: '{self.sanitize_url_for_logging(config['url'])}'"
+        )
         self.debug_log(f"  Protocol: '{protocol}'")
         self.debug_log(f"  Host: '{host}'")
         self.debug_log(f"  Port: '{port}'")

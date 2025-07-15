@@ -25,10 +25,23 @@ WORKDIR /app
 # Build stage for dependencies
 FROM base AS deps
 
-# Copy requirements file for PDM installation with hash verification
-COPY requirements-docker.txt ./
+# Copy the requirements generation script
+COPY scripts/generate_requirements.py ./scripts/
+
+# Generate requirements file dynamically for the current platform during build
+# This ensures correct hashes for the actual build environment
+# Note: Script will fallback to current platform if specific platform downloads fail
+RUN python3 scripts/generate_requirements.py \
+    --platform linux_x86_64 \
+    --python-version 311 \
+    --output requirements-docker.txt \
+    --comment "PDM and all its dependencies generated for Docker build environment" \
+    pdm==2.24.2 && \
+    echo "Generated requirements-docker.txt successfully" && \
+    head -10 requirements-docker.txt
 
 # Upgrade pip and install PDM with hash verification using pip cache
+# The --require-hashes mode is automatically enabled when hashes are present
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --upgrade pip && \
     pip install -r requirements-docker.txt

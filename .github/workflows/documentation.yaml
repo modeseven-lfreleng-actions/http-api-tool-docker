@@ -86,7 +86,14 @@ jobs:
         if: steps.tox-ini.outputs.type == 'file'
         run: |
           # Build documentation (tox/sphinx)
-          pip --disable-pip-version-check install --upgrade tox
+          # Generate tox requirements with complete dependency tree and hashes
+          python3 scripts/generate_requirements.py \
+            --platform linux_x86_64 \
+            --python-version 311 \
+            --output /tmp/tox-requirements.txt \
+            --comment "Tox with complete dependency tree" \
+            tox==4.27.0
+          pip --disable-pip-version-check install --require-hashes -r /tmp/tox-requirements.txt
           tox -e docs
           echo "Tox documentation build ✅"
 
