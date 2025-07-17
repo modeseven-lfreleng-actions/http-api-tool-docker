@@ -30,6 +30,9 @@ test-cov: install-test ## Run tests with coverage
 lint: ## Run linting checks
 	pdm run pre-commit run --all-files
 
+security-check: ## Check pip install commands for SHA hash pinning
+	python3 scripts/check-pip-security.py
+
 format: ## Format code
 	pdm run pre-commit run --all-files ruff-format
 
@@ -124,7 +127,7 @@ pre-commit-install: ## Install pre-commit hooks
 pre-commit-run: ## Run pre-commit hooks on all files
 	pdm run pre-commit run --all-files
 
-ci: install-dev lint test ## Run CI pipeline locally
+ci: install-dev lint security-check test ## Run CI pipeline locally
 
 setup-dev: install-dev pre-commit-install ## Setup development environment
 

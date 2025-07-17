@@ -235,6 +235,49 @@ pdm run pre-commit install
 pdm run pre-commit run --all-files
 ```
 
+### Docker Requirements Management
+
+The Docker image uses a **dynamic requirements generation** approach where the
+Docker build process generates the `requirements-docker.txt` file to
+ensure correct platform compatibility.
+
+If you need to manually regenerate for local development:
+
+```bash
+# Regenerate requirements-docker.txt with all dependencies and hashes
+python3 scripts/generate_requirements.py \
+  --platform linux_x86_64 \
+  --python-version 311 \
+  --output requirements-docker.txt \
+  --comment "PDM and all its dependencies for Linux x86_64 platform" \
+  pdm==2.24.2
+
+# Or specify a different PDM version
+python3 scripts/generate_requirements.py \
+  --platform linux_x86_64 \
+  --python-version 311 \
+  --output requirements-docker.txt \
+  --comment "PDM and all its dependencies for Linux x86_64 platform" \
+  pdm==2.26.0
+
+# Test the Docker build
+docker build . --platform linux/arm64 -t http-api-tool-test
+```
+
+The `requirements-docker.txt` file contains:
+
+- PDM and all its transitive dependencies
+- SHA256 hashes for Linux ARM64 platform
+- Security protection against supply chain attacks
+- Ensures reproducible Docker builds
+
+**When to regenerate:**
+
+- Updating PDM version in the project
+- Docker build failures with hash verification errors
+- Setting up the project for the first time
+- After changes to `pyproject.toml` affecting PDM dependencies
+
 ### Local Development
 
 ```bash
