@@ -71,7 +71,7 @@ docker run --rm --entrypoint=/usr/local/bin/uv http-api-tool --version
 
 ```yaml
 - name: Test API Endpoint
-  uses: ./
+  uses: lfreleng-actions/http-api-tool-docker@main
   with:
     url: 'https://api.example.com/health'
     http_method: 'GET'
@@ -83,7 +83,7 @@ docker run --rm --entrypoint=/usr/local/bin/uv http-api-tool --version
 
 # Example with custom CA certificate
 - name: Test API with Custom CA
-  uses: ./
+  uses: lfreleng-actions/http-api-tool-docker@main
   with:
     url: 'https://internal-api.company.com/health'
     ca_bundle_path: '/path/to/ca-certificates.pem'
@@ -189,7 +189,7 @@ with:
 
 ```yaml
 - name: Health Check
-  uses: ./
+  uses: lfreleng-actions/http-api-tool-docker@main
   with:
     url: 'https://api.example.com/health'
     expected_http_code: '200'
@@ -199,7 +199,7 @@ with:
 
 ```yaml
 - name: Create User
-  uses: ./
+  uses: lfreleng-actions/http-api-tool-docker@main
   with:
     url: 'https://api.example.com/users'
     http_method: 'POST'
@@ -213,7 +213,7 @@ with:
 
 ```yaml
 - name: Get Protected Resource
-  uses: ./
+  uses: lfreleng-actions/http-api-tool-docker@main
   with:
     url: 'https://api.example.com/protected'
     request_headers: '{"Authorization": "Bearer ${{ secrets.API_TOKEN }}"}'
@@ -226,7 +226,7 @@ with:
 
 ```yaml
 - name: Test API Response
-  uses: ./
+  uses: lfreleng-actions/http-api-tool-docker@main
   with:
     url: 'https://api.example.com/status'
     regex: '"status":\s*"ok"'
@@ -328,10 +328,40 @@ python -m http.server 8000 &
 pdm run python -m http_api_tool test --url http://localhost:8000
 ```
 
-### Testing with Local go-httpbin Service
+### Testing with go-httpbin Service
 
-For testing HTTP API functionality, use the local go-httpbin service instead of
-external services:
+For testing HTTP API functionality, you can either use the go-httpbin GitHub
+Action for workflows or set up a local go-httpbin service for development.
+
+#### Using the go-httpbin GitHub Action
+
+For GitHub Actions workflows, use the standalone go-httpbin action to set up an
+HTTPS testing service:
+
+<!-- markdownlint-disable MD013 -->
+
+```yaml
+steps:
+  - name: Setup go-httpbin HTTPS service
+    uses: lfreleng-actions/go-httpbin-action@fd9c3701056fc2e667542ac66b4a63c44faea6c5 # v0.1.0
+    id: httpbin
+    with:
+      debug: 'true'
+      port: '8080'
+
+  - name: Test API with go-httpbin
+    uses: lfreleng-actions/http-api-tool-docker@main
+    with:
+      url: 'https://localhost:8080/get'
+      ca_bundle_path: 'mkcert-ca.pem'
+      expected_http_code: '200'
+```
+
+<!-- markdownlint-enable MD013 -->
+
+#### Using Local go-httpbin Service for Development
+
+For local development and testing:
 
 ```bash
 # Start local go-httpbin service
