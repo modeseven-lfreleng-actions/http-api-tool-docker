@@ -87,7 +87,7 @@ jobs:
 
       # Set up go-httpbin for testing
       - name: Setup go-httpbin HTTPS service
-        uses: ./.github/actions/go-httpbin
+        uses: lfreleng-actions/go-httpbin-action@fd9c3701056fc2e667542ac66b4a63c44faea6c5 # v0.1.0
         id: go-httpbin
         with:
           debug: 'true'
@@ -489,7 +489,7 @@ jobs:
       # Start go-httpbin service for testing
       - name: Setup go-httpbin service
         id: go-httpbin
-        uses: ./.github/actions/go-httpbin
+        uses: lfreleng-actions/go-httpbin-action@fd9c3701056fc2e667542ac66b4a63c44faea6c5 # v0.1.0
         with:
           port: '8080'
           debug: 'true'
@@ -573,7 +573,7 @@ jobs:
       # Start go-httpbin service for testing
       - name: Setup go-httpbin service
         id: go-httpbin
-        uses: ./.github/actions/go-httpbin
+        uses: lfreleng-actions/go-httpbin-action@fd9c3701056fc2e667542ac66b4a63c44faea6c5 # v0.1.0
         with:
           port: '8080'
           debug: 'true'
@@ -635,7 +635,7 @@ jobs:
       # Start go-httpbin service for testing
       - name: Setup go-httpbin service
         id: go-httpbin
-        uses: ./.github/actions/go-httpbin
+        uses: lfreleng-actions/go-httpbin-action@fd9c3701056fc2e667542ac66b4a63c44faea6c5 # v0.1.0
         with:
           port: '8080'
           debug: 'true'
@@ -725,7 +725,7 @@ jobs:
       # Start go-httpbin service for testing
       - name: Setup go-httpbin service
         id: go-httpbin
-        uses: ./.github/actions/go-httpbin
+        uses: lfreleng-actions/go-httpbin-action@fd9c3701056fc2e667542ac66b4a63c44faea6c5 # v0.1.0
         with:
           port: '8080'
           debug: 'true'
