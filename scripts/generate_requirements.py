@@ -28,16 +28,19 @@ import sys
 from pathlib import Path
 from typing import Dict, List
 
+
 def get_all_dependencies(packages: List[str]) -> List[str]:
     """Get all dependencies including transitive ones using pip install --dry-run --report."""
-    deps_report = '/tmp/deps-report.json'
+    deps_report = "/tmp/deps-report.json"
 
     print(f"Getting complete dependency tree for: {', '.join(packages)}")
 
     # Get complete dependency tree
-    result = subprocess.run([
-        'pip', 'install', '--dry-run', '--report', deps_report
-    ] + packages, capture_output=True, text=True)
+    result = subprocess.run(
+        ["pip", "install", "--dry-run", "--report", deps_report] + packages,
+        capture_output=True,
+        text=True,
+    )
 
     if result.returncode != 0:
         print(f"Error getting dependencies: {result.stderr}", file=sys.stderr)
@@ -48,9 +51,9 @@ def get_all_dependencies(packages: List[str]) -> List[str]:
         report = json.load(f)
 
     dependencies = []
-    for item in report['install']:
-        name = item['metadata']['name']
-        version = item['metadata']['version']
+    for item in report["install"]:
+        name = item["metadata"]["name"]
+        version = item["metadata"]["version"]
         dependencies.append(f"{name}=={version}")
 
     # Clean up
@@ -58,41 +61,52 @@ def get_all_dependencies(packages: List[str]) -> List[str]:
 
     return sorted(set(dependencies))
 
-def download_and_hash(packages: List[str], platform: str, python_version: str) -> Dict[str, str]:
+
+def download_and_hash(
+    packages: List[str], platform: str, python_version: str
+) -> Dict[str, str]:
     """Download packages and get their SHA256 hashes."""
-    wheels_dir = Path('/tmp/wheels-download')
+    wheels_dir = Path("/tmp/wheels-download")
     if wheels_dir.exists():
-        subprocess.run(['rm', '-rf', str(wheels_dir)])
+        subprocess.run(["rm", "-rf", str(wheels_dir)])
     wheels_dir.mkdir()
 
     print(f"Downloading packages for platform {platform}, Python {python_version}...")
 
     # First try with platform specification and binary-only
     cmd = [
-        'pip', 'download',
-        '--platform', platform,
-        '--python-version', python_version,
-        '--only-binary=:all:',
-        '--no-deps',
-        '-d', str(wheels_dir)
+        "pip",
+        "download",
+        "--platform",
+        platform,
+        "--python-version",
+        python_version,
+        "--only-binary=:all:",
+        "--no-deps",
+        "-d",
+        str(wheels_dir),
     ] + packages
 
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     # If that fails, try without platform constraints (will get current platform)
     if result.returncode != 0:
-        print("Platform-specific download failed, trying without platform constraints...")
+        print(
+            "Platform-specific download failed, trying without platform constraints..."
+        )
         print(f"Error was: {result.stderr}")
 
         # Clean up and try again without platform constraints
-        subprocess.run(['rm', '-rf', str(wheels_dir)])
+        subprocess.run(["rm", "-rf", str(wheels_dir)])
         wheels_dir.mkdir()
 
         cmd = [
-            'pip', 'download',
-            '--only-binary=:all:',
-            '--no-deps',
-            '-d', str(wheels_dir)
+            "pip",
+            "download",
+            "--only-binary=:all:",
+            "--no-deps",
+            "-d",
+            str(wheels_dir),
         ] + packages
 
         result = subprocess.run(cmd, capture_output=True, text=True)
@@ -103,49 +117,60 @@ def download_and_hash(packages: List[str], platform: str, python_version: str) -
 
     # Generate hashes
     hashes = {}
-    for wheel_file in wheels_dir.glob('*.whl'):
+    for wheel_file in wheels_dir.glob("*.whl"):
         # Extract package name and version from filename
-        parts = wheel_file.name.split('-')
-        package_name = parts[0].replace('_', '-').lower()
+        parts = wheel_file.name.split("-")
+        package_name = parts[0].replace("_", "-").lower()
         version = parts[1]
 
         # Get SHA256 hash using hashlib for portability
-        with open(wheel_file, 'rb') as f:
+        with open(wheel_file, "rb") as f:
             file_contents = f.read()
             hash_value = hashlib.sha256(file_contents).hexdigest()
         hashes[f"{package_name}=={version}"] = hash_value
 
     # Clean up
-    subprocess.run(['rm', '-rf', str(wheels_dir)])
+    subprocess.run(["rm", "-rf", str(wheels_dir)])
 
     return hashes
 
-def generate_requirements_content(packages_with_hashes: Dict[str, str], comment: str | None = None) -> str:
+
+def generate_requirements_content(
+    packages_with_hashes: Dict[str, str], comment: str | None = None
+) -> str:
     """Generate the requirements file content."""
-    content = [
-        "# SPDX-License-Identifier: Apache-2.0",
-        "# SPDX-FileCopyrightText: 2025 The Linux Foundation",
-        "",
-    ]
+    content = []
+
+    # Load SPDX header from external file to avoid REUSE parser confusion
+    header_file = Path(__file__).parent / "requirements_header.txt"
+    if header_file.exists():
+        with open(header_file, "r") as f:
+            header_lines = f.read().strip().split("\n")
+            content.extend(header_lines)
+    else:
+        # Fallback header if file doesn't exist
+        content.append("# Generated requirements file")
+        content.append("# SPDX-FileCopyrightText: 2025 The Linux Foundation")
+
+    content.append("")
 
     if comment:
-        content.extend([
-            f"# {comment}",
-            ""
-        ])
+        content.append(f"# {comment}")
+        content.append("")
 
-    content.extend([
-        "# Complete dependency tree with SHA256 hash verification",
-        "# This ensures reproducible builds and protection against supply chain attacks",
-        ""
-    ])
+    content.append("# Complete dependency tree with SHA256 hash verification")
+    content.append(
+        "# This ensures reproducible builds and protection against supply chain attacks"
+    )
+    content.append("")
 
     for package in sorted(packages_with_hashes.keys()):
         hash_value = packages_with_hashes[package]
         content.append(f"{package} \\")
         content.append(f"    --hash=sha256:{hash_value}")
 
-    return '\n'.join(content)
+    return "\n".join(content)
+
 
 def main() -> int:
     """Main function to generate requirements file."""
@@ -153,35 +178,34 @@ def main() -> int:
         description="Generate requirements file with complete dependency tree and hashes"
     )
     parser.add_argument(
-        'packages',
-        nargs='+',
-        help='Packages to install with version pins (e.g., safety==3.6.0)'
+        "packages",
+        nargs="+",
+        help="Packages to install with version pins (e.g., safety==3.6.0)",
     )
     parser.add_argument(
-        '--platform',
-        default='linux_x86_64',
-        help='Platform to download packages for (default: linux_x86_64)'
+        "--platform",
+        default="linux_x86_64",
+        help="Platform to download packages for (default: linux_x86_64)",
     )
     parser.add_argument(
-        '--python-version',
-        default='310',
-        help='Python version to target (default: 310)'
+        "--python-version",
+        default="310",
+        help="Python version to target (default: 310)",
     )
+    parser.add_argument("--output", "-o", help="Output file path (default: stdout)")
     parser.add_argument(
-        '--output', '-o',
-        help='Output file path (default: stdout)'
-    )
-    parser.add_argument(
-        '--comment',
-        help='Additional comment to include in the requirements file'
+        "--comment", help="Additional comment to include in the requirements file"
     )
 
     args = parser.parse_args()
 
     # Validate package format
     for package in args.packages:
-        if '==' not in package:
-            print(f"Error: Package '{package}' must include exact version with == (e.g., safety==3.6.0)", file=sys.stderr)
+        if "==" not in package:
+            print(
+                f"Error: Package '{package}' must include exact version with == (e.g., safety==3.6.0)",
+                file=sys.stderr,
+            )
             return 1
 
     # Get all dependencies
@@ -205,7 +229,7 @@ def main() -> int:
 
     # Output results
     if args.output:
-        with open(args.output, 'w') as f:
+        with open(args.output, "w") as f:
             f.write(requirements_content)
         print(f"Generated requirements file: {args.output}")
     else:
@@ -213,5 +237,6 @@ def main() -> int:
 
     return 0
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     sys.exit(main())
