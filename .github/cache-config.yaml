@@ -12,12 +12,12 @@ cache:
     restore_keys:
       - "pip-${{ runner.os }}-"
 
-  pdm:
-    # PDM cache key based on lock file and Python version
-    key_pattern: "pdm-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/pdm.lock') }}"
+  uv:
+    # UV cache key based on lock file and Python version
+    key_pattern: "uv-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('**/uv.lock') }}"
     restore_keys:
-      - "pdm-${{ runner.os }}-${{ matrix.python-version }}-"
-      - "pdm-${{ runner.os }}-"
+      - "uv-${{ runner.os }}-${{ matrix.python-version }}-"
+      - "uv-${{ runner.os }}-"
 
   docker:
     # Docker buildx cache configuration

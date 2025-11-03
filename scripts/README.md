@@ -114,37 +114,26 @@ python3 scripts/generate_requirements.py \
   --comment "Security scanning tools" \
   safety==3.6.0 bandit==1.8.3 pip-audit==2.7.3
 
-# Generate requirements-docker.txt for PDM (Docker builds)
-python3 scripts/generate_requirements.py \
-  --platform linux_aarch64 \
-  --python-version 311 \
-  --output requirements-docker.txt \
-  --comment "PDM and all its dependencies for Linux ARM64 platform" \
-  pdm==2.24.2
-
-# Generate for different PDM version
-python3 scripts/generate_requirements.py \
-  --platform linux_aarch64 \
-  --python-version 311 \
-  --output requirements-docker.txt \
-  --comment "PDM and all its dependencies for Linux ARM64 platform" \
-  pdm==2.26.0
+# Note: This project now uses UV for dependency management
+# The Dockerfile uses UV directly, so requirements-docker.txt is no longer
+# needed for package management
+# UV lock file (uv.lock) is automatically generated and used during Docker
+# builds
 ```
 
 ### When to Use
 
 Run this script when:
 
-- Setting up CI workflows that need hash-verified package installations
-- Creating Docker images that require reproducible builds
-- **Docker builds automatically use this script during the build process**
+- Setting up CI workflows that need hash-verified package installations for
+  security tools
+- Creating requirements files for specific tools with hash verification
 - Updating package versions in any environment
 - Ensuring supply chain security compliance
 
-- Updating PDM version in the Docker container
-- Docker build fails with hash verification errors
-- Setting up the project for the first time
-- Dependencies change in `pyproject.toml`
+**Note:** Docker builds now use UV with `uv.lock` for dependency management.
+This script is primarily used for generating requirements files for security
+scanning tools and other CI utilities.
 
 ### Output
 
@@ -154,25 +143,26 @@ The script generates `requirements-docker.txt` containing:
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: 2025 The Linux Foundation
 
-# PDM and all its dependencies with SHA256 hash verification
+# Security scanning tools with SHA256 hash verification
 # This ensures reproducible builds and protection against supply chain attacks
-# Generated for Linux ARM64 platform
+# Generated for Linux x86_64 platform
 
-pdm==2.25.4 \
-    --hash=sha256:3efab7367cb5d9d6e4ef9db6130e4f5620c247343c8e95e18bd0d76b201ff7da
+safety==3.6.0 \
+    --hash=sha256:example_hash_here
+bandit==1.8.3 \
+    --hash=sha256:example_hash_here
 # ... all other dependencies with hashes
 ```
 
-### Integration with Docker
+### Integration with UV
 
-The Dockerfile uses the generated file:
+The project now uses UV for dependency management. The Dockerfile uses UV directly:
 
 ```dockerfile
-# Copy requirements file with hashes
-COPY requirements-docker.txt ./
-
-# Install PDM with hash verification
-RUN pip install -r requirements-docker.txt
+# Install dependencies using uv with lock file
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --no-dev
 ```
 
-This ensures that pip's `--require-hashes` mode works and verifies all dependencies.
+This ensures that UV's lock file verification works and UV verifies all
+dependencies using `uv.lock`.

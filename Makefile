@@ -9,32 +9,32 @@ help: ## Show this help message
 	@echo 'Targets:'
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-15s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-install-pdm: ## Install PDM package manager with caching
-	pip install --cache-dir ~/.cache/pip pdm==2.24.2
+install-uv: ## Install uv package manager
+	curl -LsSf https://astral.sh/uv/install.sh | sh
 
-install: ## Install dependencies using PDM
-	pdm install
+install: ## Install dependencies using uv
+	uv sync --frozen --no-dev
 
-install-test: ## Install test dependencies using PDM
-	pdm install -G test
+install-test: ## Install test dependencies using uv
+	uv sync --frozen --group test
 
-install-dev: ## Install development dependencies using PDM
-	pdm install -G dev -G test
+install-dev: ## Install development dependencies using uv
+	uv sync --frozen
 
 test: install-test ## Run tests
-	pdm run pytest tests/ -v
+	uv run pytest tests/ -v
 
 test-cov: install-test ## Run tests with coverage
-	pdm run pytest tests/ --cov=http_api_tool --cov-report=html --cov-report=term
+	uv run pytest tests/ --cov=http_api_tool --cov-report=html --cov-report=term
 
 lint: ## Run linting checks
-	pdm run pre-commit run --all-files
+	uv run pre-commit run --all-files
 
 security-check: ## Check pip install commands for SHA hash pinning
 	python3 scripts/check-pip-security.py
 
 format: ## Format code
-	pdm run pre-commit run --all-files ruff-format
+	uv run pre-commit run --all-files ruff-format
 
 clean: ## Clean build artifacts
 	rm -rf __pycache__/
@@ -43,6 +43,8 @@ clean: ## Clean build artifacts
 	rm -rf coverage_html_report/
 	rm -rf .coverage
 	rm -rf bandit-report.json
+	rm -rf .venv/
+	rm -rf uv.lock
 	find . -type f -name "*.pyc" -delete
 	find . -type d -name "__pycache__" -delete
 
@@ -122,13 +124,13 @@ test-with-httpbin: setup-go-httpbin ## Run docker example with local go-httpbin
 	@$(MAKE) stop-go-httpbin
 
 pre-commit-install: ## Install pre-commit hooks
-	pdm run pre-commit install
+	uv run pre-commit install
 
 pre-commit-run: ## Run pre-commit hooks on all files
-	pdm run pre-commit run --all-files
+	uv run pre-commit run --all-files
 
 ci: install-dev lint security-check test ## Run CI pipeline locally
 
 setup-dev: install-dev pre-commit-install ## Setup development environment
 
-bootstrap: install-pdm install-dev ## Bootstrap the development environment from scratch
+bootstrap: install-uv install-dev ## Bootstrap the development environment from scratch

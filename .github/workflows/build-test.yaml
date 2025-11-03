@@ -6,6 +6,17 @@ name: 'Build/Test and Publish Docker Image'
 
 on:
   workflow_dispatch:
+    inputs:
+      bust_cache:
+        description: 'Bust Docker build cache (forces fresh build)'
+        required: false
+        type: boolean
+        default: false
+      purge_all_caches:
+        description: 'Purge ALL GitHub Actions caches for this repository'
+        required: false
+        type: boolean
+        default: false
   push:
     branches: [ 'main' ]
   pull_request:
@@ -22,8 +33,38 @@ env:
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
+  # Purge all caches if requested via workflow_dispatch
+  purge-caches:
+    name: "Purge All Caches"
+    if: github.event_name == 'workflow_dispatch' && inputs.purge_all_caches == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: write
+    steps:
+      - name: Purge all GitHub Actions caches
+        run: |
+          echo "🗑️ Purging all GitHub Actions caches for this repository..."
+
+          # Get all cache keys using GitHub API
+          REPO="${{ github.repository }}"
+
+          echo "Fetching cache list..."
+          gh api -X GET "/repos/$REPO/actions/caches" --paginate | \
+            jq -r '.actions_caches[].id' | \
+            while read -r cache_id; do
+              echo "Deleting cache ID: $cache_id"
+              gh api -X DELETE "/repos/$REPO/actions/caches/$cache_id" || true
+            done
+
+          echo "✅ All caches purged successfully"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   # Build Docker image with comprehensive caching
   docker-build:
+    needs: [purge-caches]
+    if: always() && (needs.purge-caches.result == 'success' || needs.purge-caches.result == 'skipped')
     name: "Build Docker Image"
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -58,10 +99,11 @@ jobs:
           load: true
           tags: http-api-tool:test
           cache-from: |
-            type=gha,scope=docker-build
+            ${{ github.event_name == 'workflow_dispatch' && inputs.bust_cache == true && 'type=gha,scope=docker-build-never-exists' || 'type=gha,scope=docker-build' }}
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-base
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-deps
           cache-to: type=gha,mode=max,scope=docker-build
+          no-cache: ${{ github.event_name == 'workflow_dispatch' && inputs.bust_cache == true }}
           labels: |
             org.opencontainers.image.title=HTTP API Tool
             org.opencontainers.image.description=A Python HTTP/HTTPS API testing tool
@@ -203,9 +245,10 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: |
-            type=gha,scope=docker-publish
+            ${{ github.event_name == 'workflow_dispatch' && inputs.bust_cache == true && 'type=gha,scope=docker-publish-never-exists' || 'type=gha,scope=docker-publish' }}
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-base
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-deps
+          no-cache: ${{ github.event_name == 'workflow_dispatch' && inputs.bust_cache == true }}
           cache-to: |
             type=gha,mode=max,scope=docker-publish
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-base,mode=max
