@@ -93,17 +93,17 @@ docker run --rm --entrypoint=/usr/local/bin/uv http-api-tool --version
 ### As a CLI Tool
 
 ```bash
-# Install PDM (if not already installed)
-pip install --no-cache-dir pdm==2.24.2
+# Install UV (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install dependencies using PDM with hash verification
-pdm install
+# Install dependencies using UV with hash verification
+uv sync --frozen --no-dev
 
 # Basic usage
-pdm run python -m http_api_tool test --url https://api.example.com/health
+uv run python -m http_api_tool test --url https://api.example.com/health
 
 # Advanced usage
-pdm run python -m http_api_tool test \
+uv run python -m http_api_tool test \
   --url https://api.example.com/users \
   --http-method POST \
   --request-body '{"name": "John", "email": "john@example.com"}' \
@@ -248,30 +248,30 @@ The action provides detailed error messages for common scenarios:
 ### Running Tests
 
 ```bash
-# Install PDM (if not already installed)
-pip install --no-cache-dir pdm==2.24.2
+# Install UV (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Install development dependencies with hash verification
-pdm install --dev
+uv sync --frozen
 
 # Run tests
-pdm run pytest tests/ -v
+uv run pytest tests/ -v
 
 # Run with coverage
-pdm run pytest tests/ --cov=http_api_tool --cov-report=html
+uv run pytest tests/ --cov=http_api_tool --cov-report=html
 ```
 
 ### Pre-commit Hooks
 
 ```bash
 # Install pre-commit (included in dev dependencies)
-pdm install --dev
+uv sync --frozen
 
 # Install hooks
-pdm run pre-commit install
+uv run pre-commit install
 
 # Run hooks manually
-pdm run pre-commit run --all-files
+uv run pre-commit run --all-files
 ```
 
 ### Docker Requirements Management
@@ -284,20 +284,9 @@ If you need to manually regenerate for local development:
 
 ```bash
 # Regenerate requirements-docker.txt with all dependencies and hashes
-python3 scripts/generate_requirements.py \
-  --platform linux_x86_64 \
-  --python-version 311 \
-  --output requirements-docker.txt \
-  --comment "PDM and all its dependencies for Linux x86_64 platform" \
-  pdm==2.24.2
-
-# Or specify a different PDM version
-python3 scripts/generate_requirements.py \
-  --platform linux_x86_64 \
-  --python-version 311 \
-  --output requirements-docker.txt \
-  --comment "PDM and all its dependencies for Linux x86_64 platform" \
-  pdm==2.26.0
+# Note: This project now uses UV for dependency management
+# The Dockerfile uses UV directly, so requirements-docker.txt is no longer needed
+# UV lock file (uv.lock) is automatically generated and used during builds
 
 # Test the Docker build
 docker build . --platform linux/arm64 -t http-api-tool-test
@@ -305,27 +294,28 @@ docker build . --platform linux/arm64 -t http-api-tool-test
 
 The `requirements-docker.txt` file contains:
 
-- PDM and all its transitive dependencies
-- SHA256 hashes for Linux ARM64 platform
+- UV handles dependency resolution and locking automatically
+- SHA256 hashes in uv.lock file
 - Security protection against supply chain attacks
 - Ensures reproducible Docker builds
 
 **When to regenerate:**
 
-- Updating PDM version in the project
+- Updating dependencies in the project
 - Docker build failures with hash verification errors
 - Setting up the project for the first time
-- After changes to `pyproject.toml` affecting PDM dependencies
+- After changes to `pyproject.toml` affecting dependencies
+  (run `uv lock` to regenerate lock file)
 
 ### Local Development
 
 ```bash
 # Test CLI functionality
-pdm run python -m http_api_tool test --help
+uv run python -m http_api_tool test --help
 
 # Test against local server
 python -m http.server 8000 &
-pdm run python -m http_api_tool test --url http://localhost:8000
+uv run python -m http_api_tool test --url http://localhost:8000
 ```
 
 ### Testing with go-httpbin Service
@@ -412,33 +402,37 @@ If you're migrating from the original shell-based implementation:
    - Enhanced debugging output
    - More comprehensive response metrics
 
-## Migration to PDM
+## Package Management with UV
 
-This project uses PDM (Python Dependency Manager) for dependency management:
+This project uses UV (fast Python package installer and resolver) for
+dependency management:
 
 ### For Development
 
 Install dependencies with:
 
 ```bash
-pip install --no-cache-dir pdm==2.24.2
-pdm install --dev
+# Install UV (if not already installed)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Install development dependencies
+uv sync --frozen
 ```
 
 Run unit tests with:
 
 ```bash
-pdm run pytest tests/ -v
+uv run pytest tests/ -v
 ```
 
 ## Requirements
 
 - Python 3.10+
-- PDM (Python Dependency Manager)
+- UV (Fast Python package installer and resolver)
 - pycurl
 - typer (for CLI usage)
 
-PDM manages dependencies, with hash-verified lock files for reproducible builds.
+UV manages dependencies, with hash-verified lock files for reproducible builds.
 
 ## License
 
