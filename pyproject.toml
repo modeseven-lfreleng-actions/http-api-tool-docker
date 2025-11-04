@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2025 The Linux Foundation
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling>=1.24", "hatch-vcs>=0.4"]
 build-backend = "hatchling.build"
 
 [project]
@@ -82,7 +82,13 @@ Documentation = "https://github.com/lfreleng-actions/http-api-tool-docker/blob/m
 http-api-tool = "http_api_tool:main"
 
 [tool.hatch.version]
-path = "src/http_api_tool/__init__.py"
+source = "vcs"
+
+[tool.hatch.version.raw-options]
+local_scheme = "no-local-version"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/http_api_tool/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/http_api_tool"]

@@ -17,6 +17,36 @@ shell code implementations in GitHub actions.
 A containerized version of the HTTP API test tool with secure,
 multi-architecture support.
 
+### Published Docker Images
+
+Pre-built, multi-architecture Docker images are automatically published to
+GitHub Container Registry on every release:
+
+```bash
+# Pull the latest version
+docker pull ghcr.io/lfreleng-actions/http-api-tool-docker:latest
+
+# Pull a specific version
+docker pull ghcr.io/lfreleng-actions/http-api-tool-docker:v0.2.0
+
+# Use directly in commands
+docker run --rm ghcr.io/lfreleng-actions/http-api-tool-docker:latest test \
+  --url https://api.example.com/health \
+  --expected-http-code 200
+```
+
+**Available Tags:**
+
+- `latest` - Most recent release
+- `vX.Y.Z` - Specific version (e.g., `v0.2.0`)
+- `X.Y` - Minor version (e.g., `0.2`)
+- `X` - Major version (e.g., `0`)
+
+**Supported Platforms:**
+
+- `linux/amd64` (Intel/AMD x86_64)
+- `linux/arm64` (Apple Silicon/ARM64)
+
 ### Docker Security Features
 
 The Dockerfile implements these security best practices:
@@ -29,7 +59,9 @@ The Dockerfile implements these security best practices:
   - `linux/amd64` (Intel/AMD x86_64)
   - `linux/arm64` (Apple Silicon/ARM64)
 
-### Building the Container
+### Building the Container (Optional)
+
+You can build the container locally if needed, though pre-built images are available:
 
 ```bash
 # Build for current platform
@@ -46,11 +78,20 @@ docker build --build-arg UV_VERSION=0.8.5 -t http-api-tool .
 ### Container Usage
 
 ```bash
-# Run the tool
+# Using published image
+docker run --rm ghcr.io/lfreleng-actions/http-api-tool-docker:latest --help
+
+# Test an API endpoint
+docker run --rm ghcr.io/lfreleng-actions/http-api-tool-docker:latest test \
+  --url https://api.example.com/health \
+  --expected-http-code 200
+
+# Using locally built image
 docker run --rm http-api-tool --help
 
 # Check uv version in container
-docker run --rm --entrypoint=/usr/local/bin/uv http-api-tool --version
+docker run --rm --entrypoint=/usr/local/bin/uv \
+  ghcr.io/lfreleng-actions/http-api-tool-docker:latest --version
 ```
 
 ## Features
@@ -69,10 +110,45 @@ docker run --rm --entrypoint=/usr/local/bin/uv http-api-tool --version
 
 ### As a GitHub Action
 
+The action supports two deployment methods:
+
+#### 1. uvx Deployment (Default - Fast & Recommended)
+
+Uses `uvx` to run the tool directly from PyPI without building a container.
+This is faster and is the recommended method.
+
 ```yaml
-- name: Test API Endpoint
+- name: Test API Endpoint (uvx - default)
   uses: lfreleng-actions/http-api-tool-docker@main
   with:
+    url: 'https://api.example.com/health'
+    http_method: 'GET'
+    expected_http_code: '200'
+    curl_timeout: '30'
+    max_response_time: '10'
+    retries: '3'
+    initial_sleep_time: '2'
+
+# Explicitly specify uvx with custom Python version
+- name: Test API with uvx and Python 3.12
+  uses: lfreleng-actions/http-api-tool-docker@main
+  with:
+    deploy: 'uvx'
+    python_version: '3.12'
+    url: 'https://api.example.com/health'
+    expected_http_code: '200'
+```
+
+#### 2. Docker Deployment (Containerized)
+
+Uses Docker to run the tool in a container. This is useful when you need
+isolation or specific container features.
+
+```yaml
+- name: Test API Endpoint (Docker)
+  uses: lfreleng-actions/http-api-tool-docker@main
+  with:
+    deploy: 'docker'
     url: 'https://api.example.com/health'
     http_method: 'GET'
     expected_http_code: '200'
@@ -85,10 +161,20 @@ docker run --rm --entrypoint=/usr/local/bin/uv http-api-tool --version
 - name: Test API with Custom CA
   uses: lfreleng-actions/http-api-tool-docker@main
   with:
+    deploy: 'docker'
     url: 'https://internal-api.company.com/health'
     ca_bundle_path: '/path/to/ca-certificates.pem'
     expected_http_code: '200'
 ```
+
+**Deployment Method Comparison:**
+
+| Feature | uvx (default) | docker |
+|---------|--------------|--------|
+| Speed | ⚡ Fast (~10s) | 🐌 Slower (~60s for build) |
+| Isolation | Process-level | Container-level |
+| Caching | PyPI cache | Docker layer cache |
+| Use Case | Most scenarios | Special isolation needs |
 
 ### As a CLI Tool
 
@@ -122,6 +208,8 @@ uv run python -m http_api_tool test \
 
 | Input | Description | Required | Default |
 |-------|-------------|----------|---------|
+| `deploy` | Deployment method: `uvx` (fast, default) or `docker` (containerized) | No | `uvx` |
+| `python_version` | Python version to use when deploy=uvx | No | `3.11` |
 | `url` | URL of API server/interface to check | Yes | - |
 | `auth_string` | Authentication string, colon separated username/password | No | - |
 | `service_name` | Name of HTTP/HTTPS API service tested | No | `API Service` |
@@ -260,6 +348,43 @@ uv run pytest tests/ -v
 # Run with coverage
 uv run pytest tests/ --cov=http_api_tool --cov-report=html
 ```
+
+### Integration Testing
+
+The project includes a comprehensive integration test suite that validates the
+published PyPI package:
+
+```bash
+# Run integration tests locally using go-httpbin (recommended - reliable & fast)
+make test-integration-local
+
+# Run integration tests against published PyPI package (uses httpbin.org)
+make test-integration
+```
+
+**Local Testing (Recommended)**: Uses the self-hosted `go-httpbin` service for
+reliable, fast testing without external dependencies. It automatically sets up
+HTTPS with mkcert and runs all tests against localhost.
+
+**Remote Testing**: Uses httpbin.org endpoints. Note that httpbin.org can be
+unreliable during peak times.
+
+Both test suites test the package as users would experience it, running it via
+`uvx` and checking:
+
+- Version display and help output
+- All HTTP methods (GET, POST, PUT, DELETE)
+- JSON request/response handling
+- Custom headers support
+- Regex pattern matching
+- Response time validation
+- Retry logic with backoff
+- HTTPS with SSL/TLS certificate validation
+
+**CI/CD Integration**: The integration test suite runs automatically in GitHub
+Actions after every PyPI release using the `go-httpbin-action` for reliable,
+self-hosted testing. This ensures the published package version matches the git
+tag and all features work as expected.
 
 ### Pre-commit Hooks
 

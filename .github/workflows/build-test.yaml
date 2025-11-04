@@ -98,7 +98,10 @@ jobs:
           push: false
           load: true
           tags: http-api-tool:test
+          build-args: |
+            VERSION=0.0.0.dev0
           cache-from: |
+            # yamllint disable-line rule:line-length
             ${{ github.event_name == 'workflow_dispatch' && inputs.bust_cache == true && 'type=gha,scope=docker-build-never-exists' || 'type=gha,scope=docker-build' }}
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-base
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-deps
@@ -244,7 +247,10 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=0.0.0.dev0
           cache-from: |
+            # yamllint disable-line rule:line-length
             ${{ github.event_name == 'workflow_dispatch' && inputs.bust_cache == true && 'type=gha,scope=docker-publish-never-exists' || 'type=gha,scope=docker-publish' }}
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-base
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-deps
@@ -346,6 +352,7 @@ jobs:
             ~/.cache/pdm
             .pdm-python
             .venv
+          # yamllint disable-line rule:line-length
           key: pdm-test-${{ runner.os }}-python-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml', 'pdm.lock') }}
           restore-keys: |
             pdm-test-${{ runner.os }}-python-${{ matrix.python-version }}-
@@ -395,6 +402,7 @@ jobs:
             ~/.cache/pdm
             .pdm-python
             .venv
+          # yamllint disable-line rule:line-length
           key: pdm-audit-${{ runner.os }}-python-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml', 'pdm.lock') }}
           restore-keys: |
             pdm-audit-${{ runner.os }}-python-${{ matrix.python-version }}-
@@ -909,7 +917,9 @@ jobs:
           if pip list | grep -i requests; then
             # The vulnerability affects all versions of the deprecated 'request' package
             # Warn if it's being used directly in production code
+            # yamllint disable-line rule:line-length
             if grep -r "import requests" src/ --include="*.py" || grep -r "from requests" src/ --include="*.py"; then
+              # yamllint disable-line rule:line-length
               echo "::warning::Requests package is directly imported in code - check usage patterns for SSRF vulnerabilities"
             else
               echo "Requests package is a dependency but not directly imported - lower risk"
