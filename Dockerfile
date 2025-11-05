@@ -10,6 +10,7 @@
 #
 # To override the version: docker build --build-arg UV_VERSION=0.8.3 .
 # Supports: linux/amd64 (Intel/AMD x86_64) and linux/arm64 (Apple Silicon/ARM64)
+ARG VERSION=0.0.0
 ARG UV_VERSION=0.8.4
 ARG UV_CHECKSUM_AMD64=eb61d39fdc6ea21a6d00a24b50376102168240849c5022d3eba331f972ba3934
 ARG UV_CHECKSUM_ARM64=d42742a28ce161e72cce45c8c5621ee23317e30d461f595c382acf0f9b331f20
@@ -71,6 +72,9 @@ RUN set -eu; \
 # Build stage for dependencies
 FROM base AS deps
 
+# Accept VERSION argument in this stage
+ARG VERSION=0.0.0
+
 # Copy uv binaries from installer stage
 COPY --from=uv-installer /usr/local/bin/uv /usr/local/bin/uv
 COPY --from=uv-installer /usr/local/bin/uvx /usr/local/bin/uvx
@@ -83,8 +87,9 @@ COPY src/ src/
 
 # Generate uv.lock from pyproject.toml during build to ensure freshness
 # This prevents stale package versions from being baked into the container
+# Set SETUPTOOLS_SCM_PRETEND_VERSION to allow version detection without Git
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv lock
+    SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION} uv lock
 
 # Install dependencies using the freshly generated lock file
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -92,6 +97,9 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # Production stage
 FROM base AS production
+
+# Accept VERSION argument in this stage
+ARG VERSION=0.0.0
 
 # Copy uv binaries from installer stage
 COPY --from=uv-installer /usr/local/bin/uv /usr/local/bin/uv
@@ -107,8 +115,9 @@ COPY pyproject.toml README.md ./
 
 # Install the package itself using proper uv installation for correct handling
 # of entry points, dependencies, and metadata
+# Set SETUPTOOLS_SCM_PRETEND_VERSION to allow version detection without Git
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev
+    SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION} uv sync --frozen --no-dev
 
 # Note: For GitHub Actions Docker containers that need to write to environment
 # files, running as root is necessary due to file permission requirements.

@@ -3,6 +3,7 @@
 # SPDX-FileCopyrightText: 2025 The Linux Foundation
 
 ci:
+  skip: [gha-workflow-linter]
   autofix_commit_msg: |
     Chore: pre-commit autofixes
 
@@ -51,7 +52,7 @@ repos:
         args: [--config-file=.yamllint]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: 3db93a2be6f214ed722bf7bce095ec1b1715422a  # frozen: v0.14.2
+    rev: aad66557af3b56ba6d4d69cd1b6cba87cef50cbb  # frozen: v0.14.3
     hooks:
       - id: ruff
         # Currently only src and tests contain Python files
@@ -105,15 +106,11 @@ repos:
       - id: codespell
         args: ["--ignore-words=.codespell"]
 
-  # Security check for pip install commands in workflows
-  - repo: local
+  - repo: https://github.com/modeseven-lfit/gha-workflow-linter
+    rev: 19d280b4facd814e660873ce738e09da457eb1c0  # frozen: v0.1.8
     hooks:
-      - id: check-pip-security
-        name: Check pip install security (SHA pinning)
-        entry: python3 scripts/check-pip-security.py
-        language: system
-        files: ^\.github/workflows/.*\.(yml|yaml)$
-        description: "Ensure all pip install commands use SHA256 hash pinning for security"
+      - id: gha-workflow-linter
+        args: [lint, .]
 
   - repo: https://github.com/python-jsonschema/check-jsonschema.git
     rev: 83b816d020105076daac266dbf6bfed199a2da93  # frozen: 0.34.1

@@ -27,6 +27,12 @@ test: install-test ## Run tests
 test-cov: install-test ## Run tests with coverage
 	uv run pytest tests/ --cov=http_api_tool --cov-report=html --cov-report=term
 
+test-integration: ## Run integration tests against published PyPI package (uses httpbin.org)
+	./scripts/test-pypi-integration.sh
+
+test-integration-local: ## Run integration tests locally using go-httpbin (recommended)
+	./scripts/test-pypi-integration-local.sh
+
 lint: ## Run linting checks
 	uv run pre-commit run --all-files
 
@@ -130,6 +136,8 @@ pre-commit-run: ## Run pre-commit hooks on all files
 	uv run pre-commit run --all-files
 
 ci: install-dev lint security-check test ## Run CI pipeline locally
+
+ci-full: install-dev lint security-check test test-integration-local ## Run full CI pipeline including integration tests
 
 setup-dev: install-dev pre-commit-install ## Setup development environment
 

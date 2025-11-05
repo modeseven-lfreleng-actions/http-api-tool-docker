@@ -16,7 +16,16 @@ from urllib.parse import urlparse, urlunparse
 
 import typer
 
+from ._version import __version__
 from .verifier import HTTPAPITester
+
+
+def version_callback(value: bool) -> None:
+    """Callback to show version and exit."""
+    if value:
+        typer.echo(f"🏷️  http-api-tool version {__version__}")
+        raise typer.Exit()
+
 
 app = typer.Typer(help="A Python tool to test HTTP API services.")
 
@@ -60,7 +69,15 @@ def _transform_localhost_url(url: str) -> str:
 
 
 @app.callback()  # type: ignore[misc]
-def main_callback() -> None:
+def main_callback(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        callback=version_callback,
+        is_eager=True,
+        help="Show version and exit",
+    ),
+) -> None:
     """
     HTTP server/API testing tool
 

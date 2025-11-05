@@ -9,7 +9,7 @@ It uses pycurl for HTTP requests to avoid the shell escaping issues of the
 original implementation.
 """
 
-__version__ = "1.0.0"
+from ._version import __version__
 
 from .cli import app, main
 from .verifier import HTTPAPITester
