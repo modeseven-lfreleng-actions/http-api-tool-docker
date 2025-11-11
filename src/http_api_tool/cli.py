@@ -52,7 +52,16 @@ def _get_docker_host_gateway() -> Optional[str]:
 def _transform_localhost_url(url: str) -> str:
     """Transform localhost URLs to use Docker host gateway when running in a container."""
     # Only transform if we're in a containerized environment (GitHub Actions)
+    # AND we're running in Docker deployment mode (not uvx on the host)
     if not os.environ.get("GITHUB_ACTIONS"):
+        return url
+
+    # Check if we're running via uvx (on host) - in this case, don't transform
+    # uvx runs directly on the host, so localhost is correct
+    # Docker deployment runs in a container, so localhost needs to be transformed to gateway IP
+    deploy_mode = os.environ.get("INPUT_DEPLOY", "uvx")
+    if deploy_mode == "uvx":
+        # Running on host via uvx - localhost is correct, no transformation needed
         return url
 
     parsed = urlparse(url)

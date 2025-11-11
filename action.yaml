@@ -189,6 +189,7 @@ runs:
       id: uvx-run
       shell: bash
       env:
+        INPUT_DEPLOY: ${{ inputs.deploy }}
         INPUT_URL: ${{ inputs.url }}
         INPUT_AUTH_STRING: ${{ inputs.auth_string }}
         INPUT_SERVICE_NAME: ${{ inputs.service_name }}
@@ -231,6 +232,7 @@ runs:
       shell: bash
       working-directory: ${{ github.action_path }}
       env:
+        INPUT_DEPLOY: ${{ inputs.deploy }}
         INPUT_URL: ${{ inputs.url }}
         INPUT_AUTH_STRING: ${{ inputs.auth_string }}
         INPUT_SERVICE_NAME: ${{ inputs.service_name }}
@@ -265,6 +267,7 @@ runs:
 
         docker run --rm \
           --network host \
+          -e INPUT_DEPLOY \
           -e INPUT_URL \
           -e INPUT_AUTH_STRING \
           -e INPUT_SERVICE_NAME \
