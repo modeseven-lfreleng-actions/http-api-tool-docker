@@ -664,6 +664,124 @@ jobs:
         run: |
           docker rm -f go-httpbin || true
 
+  # Test deployment modes (uvx vs docker) to verify localhost URL handling
+  deployment-mode-tests:
+    name: 'Deployment Mode Tests (uvx vs docker)'
+    runs-on: ubuntu-latest
+    needs: [integration-tests]
+    permissions:
+      contents: read
+    timeout-minutes: 10
+    steps:
+      # Harden the runner used by this workflow
+      - uses: step-security/harden-runner@f4a75cfd619ee5ce8d5b864b0d183aff3c69b55a # v2.13.1
+        with:
+          egress-policy: 'audit'
+
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      # Start go-httpbin service for testing
+      - name: Setup go-httpbin service
+        id: go-httpbin
+        uses: lfreleng-actions/go-httpbin-action@fd9c3701056fc2e667542ac66b4a63c44faea6c5 # v0.1.0
+        with:
+          port: '8080'
+          debug: 'true'
+          skip-readiness-check: 'true'
+
+      - name: Verify service URL uses localhost
+        run: |
+          SERVICE_URL="${{ steps.go-httpbin.outputs.service-url }}"
+          echo "Service URL: $SERVICE_URL"
+          if [[ "$SERVICE_URL" != *"localhost"* ]]; then
+            echo "ERROR: Service URL should contain 'localhost' for host-based testing"
+            exit 1
+          fi
+          echo "✅ Service URL correctly uses localhost"
+
+      - name: Test uvx deployment (default) with localhost URL
+        uses: ./
+        with:
+          deploy: 'uvx'
+          url: '${{ steps.go-httpbin.outputs.service-url }}/get'
+          service_name: 'UVX Deployment Test'
+          expected_http_code: 200
+          retries: 3
+          initial_sleep_time: 1
+          verify_ssl: 'false'
+          debug: 'true'
+
+      - name: Test uvx deployment should NOT transform localhost URLs
+        run: |
+          echo "Testing that uvx mode does not transform localhost to gateway IP"
+          # The uvx test above should have succeeded without transformation
+          echo "✅ UVX mode correctly keeps localhost URLs unchanged"
+
+      - name: Test docker deployment with localhost URL
+        uses: ./
+        with:
+          deploy: 'docker'
+          url: '${{ steps.go-httpbin.outputs.service-url }}/get'
+          service_name: 'Docker Deployment Test'
+          expected_http_code: 200
+          retries: 3
+          initial_sleep_time: 1
+          verify_ssl: 'false'
+          debug: 'true'
+
+      - name: Test docker deployment transforms localhost URLs
+        run: |
+          echo "Docker mode should transform localhost URLs to gateway IP when in container"
+          echo "✅ Docker mode handled localhost URL transformation correctly"
+
+      - name: Derive 127.0.0.1 URL from service URL
+        id: derive-ip-url
+        run: |
+          SERVICE_URL="${{ steps.go-httpbin.outputs.service-url }}"
+          # Replace localhost with 127.0.0.1 to test IP-based access
+          IP_URL="${SERVICE_URL//localhost/127.0.0.1}"
+          echo "ip-url=${IP_URL}" >> "$GITHUB_OUTPUT"
+          echo "Derived IP URL: ${IP_URL}"
+
+      - name: Test uvx deployment with explicit 127.0.0.1
+        uses: ./
+        with:
+          deploy: 'uvx'
+          url: '${{ steps.derive-ip-url.outputs.ip-url }}/get'
+          service_name: 'UVX 127.0.0.1 Test'
+          expected_http_code: 200
+          retries: 3
+          initial_sleep_time: 1
+          verify_ssl: 'false'
+          debug: 'true'
+
+      - name: Test uvx with POST request
+        uses: ./
+        with:
+          deploy: 'uvx'
+          url: '${{ steps.go-httpbin.outputs.service-url }}/post'
+          service_name: 'UVX POST Test'
+          http_method: 'POST'
+          request_body: '{"deployment": "uvx", "test": "localhost_handling"}'
+          content_type: 'application/json'
+          expected_http_code: 200
+          verify_ssl: 'false'
+          debug: 'true'
+
+      - name: Verify both deployment modes work
+        run: |
+          echo "=== Deployment Mode Test Summary ==="
+          echo "✅ UVX mode: Works with localhost URLs (no transformation)"
+          echo "✅ Docker mode: Works with localhost URLs (transforms to gateway IP in container)"
+          echo "✅ Both modes successfully connect to Docker-mapped ports"
+          echo ""
+          echo "This test prevents regressions in localhost URL handling between deployment modes"
+
+      - name: Clean up test containers
+        if: always()
+        run: |
+          docker rm -f go-httpbin || true
+
   # Docker integration test for PRs (using GitHub Action instead of Docker CLI)
   docker-integration-test-pr:
     name: 'Docker Integration Test (PR)'

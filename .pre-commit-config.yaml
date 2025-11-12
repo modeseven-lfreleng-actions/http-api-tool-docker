@@ -70,6 +70,15 @@ repos:
       - id: mypy
         additional_dependencies: [types-pycurl]
 
+  - repo: https://github.com/econchick/interrogate
+    rev: 1.7.0
+    hooks:
+      - id: interrogate
+        args: [--config=pyproject.toml]
+        # Currently only src contains Python files that need docstrings
+        # Tests are excluded via pyproject.toml configuration
+        files: ^src/.+\.py$
+
   - repo: https://github.com/btford/write-good
     rev: ab66ce10136dfad5146e69e70f82a3efac8842c1 # frozen: v1.0.8
     hooks:
