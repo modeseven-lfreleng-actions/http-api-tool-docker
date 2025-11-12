@@ -4,7 +4,7 @@
 # UV version and checksums for secure installation with architecture-aware download
 # uv 0.8.4 - https://github.com/astral-sh/uv/releases/tag/0.8.4
 #
-# This Dockerfile automatically detects the target architecture (amd64/arm64) and
+# This Containerfile automatically detects the target architecture (amd64/arm64) and
 # downloads the appropriate uv binary with checksum validation to prevent MITM
 # attacks.
 #
@@ -14,6 +14,9 @@ ARG VERSION=0.0.0
 ARG UV_VERSION=0.8.4
 ARG UV_CHECKSUM_AMD64=eb61d39fdc6ea21a6d00a24b50376102168240849c5022d3eba331f972ba3934
 ARG UV_CHECKSUM_ARM64=d42742a28ce161e72cce45c8c5621ee23317e30d461f595c382acf0f9b331f20
+
+# Cache bust: Migrated from PDM to UV - change this value to force rebuild
+ARG CACHE_BUST=2025-12-11-uv-migration
 
 # Multi-stage build for optimized caching and smaller final image
 FROM python:3.11-slim@sha256:7a3ed1226224bcc1fe5443262363d42f48cf832a540c1836ba8ccbeaadf8637c AS base
@@ -74,6 +77,11 @@ FROM base AS deps
 
 # Accept VERSION argument in this stage
 ARG VERSION=0.0.0
+ARG CACHE_BUST
+
+# Cache bust: Force rebuild by echoing the cache bust value
+# This ensures Docker doesn't reuse old PDM-based layers
+RUN echo "Cache bust: ${CACHE_BUST}" > /tmp/cache-bust.txt
 
 # Copy uv binaries from installer stage
 COPY --from=uv-installer /usr/local/bin/uv /usr/local/bin/uv
@@ -88,12 +96,10 @@ COPY src/ src/
 # Generate uv.lock from pyproject.toml during build to ensure freshness
 # This prevents stale package versions from being baked into the container
 # Set SETUPTOOLS_SCM_PRETEND_VERSION to allow version detection without Git
-RUN --mount=type=cache,target=/root/.cache/uv \
-    SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION} uv lock
+RUN SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION} uv lock
 
 # Install dependencies using the freshly generated lock file
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-install-project
+RUN uv sync --frozen --no-dev --no-install-project
 
 # Production stage
 FROM base AS production
@@ -116,8 +122,7 @@ COPY pyproject.toml README.md ./
 # Install the package itself using proper uv installation for correct handling
 # of entry points, dependencies, and metadata
 # Set SETUPTOOLS_SCM_PRETEND_VERSION to allow version detection without Git
-RUN --mount=type=cache,target=/root/.cache/uv \
-    SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION} uv sync --frozen --no-dev
+RUN SETUPTOOLS_SCM_PRETEND_VERSION=${VERSION} uv sync --frozen --no-dev
 
 # Note: For GitHub Actions Docker containers that need to write to environment
 # files, running as root is necessary due to file permission requirements.
