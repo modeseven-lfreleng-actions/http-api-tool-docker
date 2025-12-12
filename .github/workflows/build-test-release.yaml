@@ -211,15 +211,6 @@ jobs:
         with:
           egress-policy: 'audit'
 
-      # Setup Python with pip caching for PyPI operations
-      - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
-        with:
-          # Do NOT use hard-coded Python; extract from pyproject.toml
-          python-version-file: 'pyproject.toml'
-          cache: 'pip'
-          cache-dependency-path: pyproject.toml
-
       - name: 'Test PyPI publishing'
         # yamllint disable-line rule:line-length
         uses: lfreleng-actions/pypi-publish-action@81a056957ed050f8305760055b1fd8103a916989 # v0.1.1
@@ -318,15 +309,6 @@ jobs:
       - uses: step-security/harden-runner@20cf305ff2072d973412fa9b1e3a4f227bda3c76 # v2.14.0
         with:
           egress-policy: 'audit'
-
-      # Setup Python with pip caching for PyPI operations
-      - name: Set up Python
-        uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
-        with:
-          # Do NOT use hard-coded Python; extract from pyproject.toml
-          python-version-file: 'pyproject.toml'
-          cache: 'pip'
-          cache-dependency-path: pyproject.toml
 
       - name: 'PyPI release'
         # yamllint disable-line rule:line-length
