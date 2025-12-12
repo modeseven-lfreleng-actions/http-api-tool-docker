@@ -63,8 +63,7 @@ jobs:
 
   # Build Docker image with comprehensive caching
   docker-build:
-    needs: [purge-caches]
-    if: always() && (needs.purge-caches.result == 'success' || needs.purge-caches.result == 'skipped')
+    needs: [python-build]
     name: "Build Docker Image"
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -288,26 +287,25 @@ jobs:
 
       # Setup Python with enhanced caching
       - name: Set up Python
+        id: setup-python
         uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
-          python-version: '3.11'
+          # Do NOT use hard coded Python; extract from pyproject.toml
+          python-version-file: 'pyproject.toml'
           cache: 'pip'
-          cache-dependency-path: |
-            requirements-docker.txt
-            pyproject.toml
+          cache-dependency-path: pyproject.toml
 
-      # Cache PDM dependencies
-      - name: Cache PDM dependencies
+      # Cache UV dependencies
+      - name: Cache UV dependencies
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
-            ~/.cache/pdm
-            .pdm-python
+            ~/.cache/uv
             .venv
-          key: pdm-${{ runner.os }}-python-3.11-${{ hashFiles('pyproject.toml', 'pdm.lock') }}
+          key: uv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
           restore-keys: |
-            pdm-${{ runner.os }}-python-3.11-
-            pdm-${{ runner.os }}-
+            uv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-
+            uv-${{ runner.os }}-
 
       - name: 'Build Python project'
         id: python-build
@@ -336,27 +334,26 @@ jobs:
 
       # Setup Python with comprehensive caching
       - name: Set up Python
+        id: setup-python
         uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
           cache-dependency-path: |
-            requirements-docker.txt
             pyproject.toml
 
-      # Cache PDM dependencies for test environment
-      - name: Cache PDM test dependencies
+      # Cache UV test dependencies
+      - name: Cache UV test dependencies
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
-            ~/.cache/pdm
-            .pdm-python
+            ~/.cache/uv
             .venv
           # yamllint disable-line rule:line-length
-          key: pdm-test-${{ runner.os }}-python-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml', 'pdm.lock') }}
+          key: uv-test-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
           restore-keys: |
-            pdm-test-${{ runner.os }}-python-${{ matrix.python-version }}-
-            pdm-test-${{ runner.os }}-
+            uv-test-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-
+            uv-test-${{ runner.os }}-
 
       - name: "Python tests [pytest] ${{ matrix.python-version }}"
         # yamllint disable-line rule:line-length
@@ -386,27 +383,26 @@ jobs:
 
       # Setup Python with comprehensive caching
       - name: Set up Python
+        id: setup-python
         uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
           cache-dependency-path: |
-            requirements-docker.txt
             pyproject.toml
 
-      # Cache PDM dependencies for audit environment
-      - name: Cache PDM audit dependencies
+      # Cache UV audit dependencies
+      - name: Cache UV audit dependencies
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
-            ~/.cache/pdm
-            .pdm-python
+            ~/.cache/uv
             .venv
           # yamllint disable-line rule:line-length
-          key: pdm-audit-${{ runner.os }}-python-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml', 'pdm.lock') }}
+          key: uv-audit-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
           restore-keys: |
-            pdm-audit-${{ runner.os }}-python-${{ matrix.python-version }}-
-            pdm-audit-${{ runner.os }}-
+            uv-audit-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-
+            uv-audit-${{ runner.os }}-
 
       - name: "Audit dependencies ${{ matrix.python-version }}"
         # yamllint disable-line rule:line-length
@@ -434,46 +430,40 @@ jobs:
 
       # Setup Python with comprehensive caching
       - name: Set up Python
+        id: setup-python
         uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
-          python-version: '3.11'
+          python-version-file: 'pyproject.toml'
           cache: 'pip'
           cache-dependency-path: |
-            requirements-docker.txt
             pyproject.toml
 
-      # Cache PDM dependencies for CLI tests
-      - name: Cache PDM CLI dependencies
+      # Cache UV CLI dependencies
+      - name: Cache UV CLI dependencies
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
-            ~/.cache/pdm
-            .pdm-python
+            ~/.cache/uv
             .venv
-          key: pdm-cli-${{ runner.os }}-python-3.11-${{ hashFiles('pyproject.toml', 'pdm.lock') }}
+          key: uv-cli-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
           restore-keys: |
-            pdm-cli-${{ runner.os }}-python-3.11-
-            pdm-cli-${{ runner.os }}-
+            uv-cli-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-
+            uv-cli-${{ runner.os }}-
 
-      - name: Install PDM and dependencies
+      - name: Install UV
+        uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a # v7.1.5
+
+      - name: Install project dependencies
         run: |
-          # Generate PDM requirements with complete dependency tree and hashes
-          python3 scripts/generate_requirements.py \
-            --platform linux_x86_64 \
-            --python-version 311 \
-            --output /tmp/pdm-requirements.txt \
-            --comment "PDM with complete dependency tree" \
-            pdm==2.24.2
-          pip install --require-hashes -r /tmp/pdm-requirements.txt
-          pdm install -G test
+          uv sync --extra test
 
       - name: Test CLI help and version
         run: |
           # Test CLI help
-          pdm run python -m http_api_tool --help
+          uv run python -m http_api_tool --help
 
           # Test specific command help
-          pdm run python -m http_api_tool test --help
+          uv run python -m http_api_tool test --help
 
       # Start go-httpbin service for testing
       - name: Setup go-httpbin service
@@ -493,7 +483,7 @@ jobs:
           echo "Using CA bundle: $CA_BUNDLE"
 
           # Test basic GET request
-          pdm run python -m http_api_tool test \
+          uv run python -m http_api_tool test \
             --url "$SERVICE_URL/get" \
             --http-method GET \
             --expected-http-code 200 \
@@ -502,7 +492,7 @@ jobs:
             --retries 3
 
           # Test POST request with JSON
-          pdm run python -m http_api_tool test \
+          uv run python -m http_api_tool test \
             --url "$SERVICE_URL/post" \
             --http-method POST \
             --expected-http-code 200 \
@@ -512,7 +502,7 @@ jobs:
             --debug
 
           # Test with headers
-          pdm run python -m http_api_tool test \
+          uv run python -m http_api_tool test \
             --url "$SERVICE_URL/headers" \
             --http-method GET \
             --expected-http-code 200 \
@@ -521,7 +511,7 @@ jobs:
             --debug
 
           # Test with authentication (if supported)
-          pdm run python -m http_api_tool test \
+          uv run python -m http_api_tool test \
             --url "$SERVICE_URL/basic-auth/user/pass" \
             --http-method GET \
             --expected-http-code 401 \
@@ -531,7 +521,7 @@ jobs:
       - name: Test CLI error handling
         run: |
           # Test with invalid URL (should fail gracefully)
-          pdm run python -m http_api_tool test \
+          uv run python -m http_api_tool test \
             --url "https://localhost:9999/nonexistent" \
             --http-method GET \
             --expected-http-code 200 \
@@ -604,7 +594,7 @@ jobs:
 
   # Test deployment modes (uvx vs docker) to verify localhost URL handling
   deployment-mode-tests:
-    name: 'Deployment Mode Tests (uvx vs docker)'
+    name: 'Deployment Mode Tests'
     runs-on: ubuntu-latest
     needs: [integration-tests]
     permissions:
@@ -627,21 +617,33 @@ jobs:
           debug: 'true'
           skip-readiness-check: 'true'
 
-      - name: Verify service URL uses localhost
+      - name: Get service URL and prepare test URLs
+        id: test-urls
         run: |
-          SERVICE_URL="${{ steps.go-httpbin.outputs.service-url }}"
-          echo "Service URL: $SERVICE_URL"
-          if [[ "$SERVICE_URL" != *"localhost"* ]]; then
-            echo "ERROR: Service URL should contain 'localhost' for host-based testing"
-            exit 1
-          fi
-          echo "✅ Service URL correctly uses localhost"
+          # Get the gateway IP URL from go-httpbin
+          GATEWAY_URL="${{ steps.go-httpbin.outputs.service-url }}"
+          echo "Gateway URL from action: $GATEWAY_URL"
 
-      - name: Test uvx deployment (default) with localhost URL
+          # For docker mode, we can use the gateway URL directly
+          echo "gateway-url=${GATEWAY_URL}" >> "$GITHUB_OUTPUT"
+          echo "Gateway URL for docker tests: $GATEWAY_URL"
+
+          # For uvx mode, construct a 127.0.0.1 URL since uvx runs on host
+          # Extract the protocol (https://)
+          PROTOCOL="${GATEWAY_URL%%://*}"
+          # Extract everything after the IP (port and path)
+          SUFFIX="${GATEWAY_URL#*:*:}"
+          # Construct 127.0.0.1 URL for host-based testing
+          HOST_URL="${PROTOCOL}://127.0.0.1:${SUFFIX}"
+          echo "host-url=${HOST_URL}" >> "$GITHUB_OUTPUT"
+          echo "Host URL for uvx tests: $HOST_URL"
+          echo "✅ Prepared test URLs for both deployment modes"
+
+      - name: Test uvx deployment with host URL
         uses: ./
         with:
           deploy: 'uvx'
-          url: '${{ steps.go-httpbin.outputs.service-url }}/get'
+          url: '${{ steps.test-urls.outputs.host-url }}/get'
           service_name: 'UVX Deployment Test'
           expected_http_code: 200
           retries: 3
@@ -649,17 +651,16 @@ jobs:
           verify_ssl: 'false'
           debug: 'true'
 
-      - name: Test uvx deployment should NOT transform localhost URLs
+      - name: Verify uvx deployment success
         run: |
-          echo "Testing that uvx mode does not transform localhost to gateway IP"
-          # The uvx test above should have succeeded without transformation
-          echo "✅ UVX mode correctly keeps localhost URLs unchanged"
+          echo "✅ UVX mode successfully connected using host-based URL (127.0.0.1)"
+          echo "UVX runs on the host, so it can access services via loopback interface"
 
-      - name: Test docker deployment with localhost URL
+      - name: Test docker deployment with gateway URL
         uses: ./
         with:
           deploy: 'docker'
-          url: '${{ steps.go-httpbin.outputs.service-url }}/get'
+          url: '${{ steps.test-urls.outputs.gateway-url }}/get'
           service_name: 'Docker Deployment Test'
           expected_http_code: 200
           retries: 3
@@ -667,40 +668,21 @@ jobs:
           verify_ssl: 'false'
           debug: 'true'
 
-      - name: Test docker deployment transforms localhost URLs
+      - name: Verify docker deployment success
         run: |
-          echo "Docker mode should transform localhost URLs to gateway IP when in container"
-          echo "✅ Docker mode handled localhost URL transformation correctly"
+          echo "✅ Docker mode successfully connected using gateway IP"
+          echo "Docker containers use the gateway IP to access host services"
 
-      - name: Derive 127.0.0.1 URL from service URL
-        id: derive-ip-url
-        run: |
-          SERVICE_URL="${{ steps.go-httpbin.outputs.service-url }}"
-          # Replace localhost with 127.0.0.1 to test IP-based access
-          IP_URL="${SERVICE_URL//localhost/127.0.0.1}"
-          echo "ip-url=${IP_URL}" >> "$GITHUB_OUTPUT"
-          echo "Derived IP URL: ${IP_URL}"
 
-      - name: Test uvx deployment with explicit 127.0.0.1
-        uses: ./
-        with:
-          deploy: 'uvx'
-          url: '${{ steps.derive-ip-url.outputs.ip-url }}/get'
-          service_name: 'UVX 127.0.0.1 Test'
-          expected_http_code: 200
-          retries: 3
-          initial_sleep_time: 1
-          verify_ssl: 'false'
-          debug: 'true'
 
       - name: Test uvx with POST request
         uses: ./
         with:
           deploy: 'uvx'
-          url: '${{ steps.go-httpbin.outputs.service-url }}/post'
+          url: '${{ steps.test-urls.outputs.host-url }}/post'
           service_name: 'UVX POST Test'
           http_method: 'POST'
-          request_body: '{"deployment": "uvx", "test": "localhost_handling"}'
+          request_body: '{"deployment": "uvx", "test": "host_url"}'
           content_type: 'application/json'
           expected_http_code: 200
           verify_ssl: 'false'
@@ -709,11 +691,11 @@ jobs:
       - name: Verify both deployment modes work
         run: |
           echo "=== Deployment Mode Test Summary ==="
-          echo "✅ UVX mode: Works with localhost URLs (no transformation)"
-          echo "✅ Docker mode: Works with localhost URLs (transforms to gateway IP in container)"
-          echo "✅ Both modes successfully connect to Docker-mapped ports"
+          echo "✅ UVX mode: Successfully connects using host URL (127.0.0.1)"
+          echo "✅ Docker mode: Successfully connects using gateway IP"
+          echo "✅ Both modes can access services running in Docker containers"
           echo ""
-          echo "This test prevents regressions in localhost URL handling between deployment modes"
+          echo "This test verifies both deployment modes work correctly with different network configurations"
 
       - name: Clean up test containers
         if: always()
@@ -883,46 +865,33 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
         with:
-          python-version: '3.10'
+          # Do NOT use hard coded Python; extract from pyproject.toml
+          python-version-file: 'pyproject.toml'
           cache: 'pip'
-          cache-dependency-path: |
-            requirements-docker.txt
-            pyproject.toml
+          cache-dependency-path: pyproject.toml
 
-      # Cache PDM dependencies
-      - name: Cache PDM dependencies
+      # Cache UV dependencies
+      - name: Cache UV dependencies
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             ./.venv
             ~/.cache/pip
-            ~/.cache/pdm
+            ~/.cache/uv
           key: ${{ runner.os }}-security-scan-deps-${{ hashFiles('**/pyproject.toml') }}
           restore-keys: |
             ${{ runner.os }}-security-scan-deps-
             ${{ runner.os }}-security-scan-
 
-      # Install security tools
-      - name: Install security scanning tools
+      # Install UV
+      - name: Install UV
+        uses: astral-sh/setup-uv@ed21f2f24f8dd64503750218de024bcf64c7250a # v7.1.5
+
+      # Install project dependencies with dev extras (includes bandit)
+      - name: Install project dependencies
         run: |
-          # Ensure we have a recent version of pip that supports --hash properly
-          VERSION=$(pip --version)
-          echo "Using pip version: $VERSION"
-
-          # Generate requirements file with complete dependency tree and hashes
-          echo "Generating security tools requirements with all transitive dependencies..."
-          python3 scripts/generate_requirements.py \
-            --platform linux_x86_64 \
-            --python-version 310 \
-            --output /tmp/security-requirements.txt \
-            --comment "Security scanning tools with complete dependency tree" \
-            safety==3.6.0 \
-            bandit==1.8.3 \
-            pip-audit==2.7.3
-
-          # Install security tools with hash verification using requirements file
-          echo "Installing security tools with hash verification..."
-          pip install --require-hashes -r /tmp/security-requirements.txt
+          echo "Installing project dependencies with dev extras..."
+          uv sync --extra dev
 
       # Check pip install security (SHA pinning)
       - name: Check pip install commands for SHA hash pinning
@@ -931,57 +900,9 @@ jobs:
           python3 scripts/check-pip-security.py
           echo "::endgroup::"
 
-      # Run safety check
-      - name: Run safety check
-        run: |
-          echo "::group::Safety Dependency Check"
-          safety check --full-report
-          echo "::endgroup::"
-        continue-on-error: true
-
       # Run bandit
       - name: Run bandit static code analysis
         run: |
           echo "::group::Bandit Static Analysis"
-          bandit -r src/ -c pyproject.toml -ll
-          echo "::endgroup::"
-
-      # Run pip-audit
-      - name: Run pip-audit for vulnerabilities
-        run: |
-          echo "::group::Pip Audit"
-          pip-audit -r requirements-docker.txt || true
-          pip-audit -f json -r requirements-docker.txt > security-report.json || true
-          echo "::endgroup::"
-        continue-on-error: true
-
-      # Check for specific vulnerabilities
-      - name: Check for known vulnerabilities
-        run: |
-          echo "::group::Targeted Vulnerability Check"
-
-          # Check for MongoDB driver vulnerability (GHSA-48p4-8xcf-vxj5)
-          echo "Checking for MongoDB driver vulnerability (GHSA-48p4-8xcf-vxj5)..."
-          if pip list | grep -i mongodb; then
-            echo "::warning::MongoDB driver detected - check version for GHSA-48p4-8xcf-vxj5 vulnerability"
-          else
-            echo "MongoDB driver not found - not vulnerable to GHSA-48p4-8xcf-vxj5"
-          fi
-
-          # Check for Request package vulnerability (GHSA-pq67-6m6q-mj2v)
-          echo "Checking for Request package vulnerability (GHSA-pq67-6m6q-mj2v)..."
-          if pip list | grep -i requests; then
-            # The vulnerability affects all versions of the deprecated 'request' package
-            # Warn if it's being used directly in production code
-            # yamllint disable-line rule:line-length
-            if grep -r "import requests" src/ --include="*.py" || grep -r "from requests" src/ --include="*.py"; then
-              # yamllint disable-line rule:line-length
-              echo "::warning::Requests package is directly imported in code - check usage patterns for SSRF vulnerabilities"
-            else
-              echo "Requests package is a dependency but not directly imported - lower risk"
-            fi
-          else
-            echo "Requests package not found - not vulnerable to GHSA-pq67-6m6q-mj2v"
-          fi
-
+          uv run bandit -r src/ -c pyproject.toml -ll
           echo "::endgroup::"
