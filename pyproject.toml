@@ -28,6 +28,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Internet :: WWW/HTTP",
     "Topic :: Software Development :: Testing",
     "Topic :: System :: Monitoring",
@@ -43,7 +44,7 @@ keywords = [
     "monitoring",
     "health-check",
 ]
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.10"
 dependencies = [
     "pycurl>=7.45.0",
     "typer>=0.9.0",
