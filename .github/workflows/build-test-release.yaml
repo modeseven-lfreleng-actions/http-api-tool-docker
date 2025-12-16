@@ -80,7 +80,7 @@ jobs:
 
       # Cache UV dependencies for release build
       - name: Cache UV release dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
           path: |
             ~/.cache/uv
@@ -128,7 +128,7 @@ jobs:
 
       # Cache UV test dependencies
       - name: Cache UV release test dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
           path: |
             ~/.cache/uv
@@ -175,7 +175,7 @@ jobs:
 
       # Cache UV audit dependencies
       - name: Cache UV release audit dependencies
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
         with:
           path: |
             ~/.cache/uv
