@@ -77,7 +77,7 @@ def _transform_localhost_url(url: str) -> str:
     return url
 
 
-@app.callback()  # type: ignore[misc]
+@app.callback()
 def main_callback(
     version: bool = typer.Option(
         False,
@@ -97,7 +97,7 @@ def main_callback(
     pass
 
 
-@app.command("test")  # type: ignore[misc]
+@app.command("test")
 def verify(
     url: str = typer.Option(..., help="URL of API server/interface to check"),
     auth_string: Optional[str] = typer.Option(
