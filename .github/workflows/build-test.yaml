@@ -451,7 +451,7 @@ jobs:
             uv-cli-${{ runner.os }}-
 
       - name: Install UV
-        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
+        uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
 
       - name: Install project dependencies
         run: |
@@ -885,7 +885,7 @@ jobs:
 
       # Install UV
       - name: Install UV
-        uses: astral-sh/setup-uv@681c641aba71e4a1c380be3ab5e12ad51f415867 # v7.1.6
+        uses: astral-sh/setup-uv@eac588ad8def6316056a12d4907a9d4d84ff7a3b # v7.3.0
 
       # Install project dependencies with dev extras (includes bandit)
       - name: Install project dependencies
