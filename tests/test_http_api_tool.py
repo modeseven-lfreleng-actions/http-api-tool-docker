@@ -85,8 +85,6 @@ class TestHTTPAPITester:
         assert result["host"] == "example.com"
         assert result["port"] == 8080
         assert result["path"] == "/api/v1"
-        assert result["username"] is None
-        assert result["password"] is None
 
     def test_parse_url_with_credentials(self) -> None:
         """Test URL parsing with embedded credentials."""
@@ -97,8 +95,9 @@ class TestHTTPAPITester:
         assert result["host"] == "example.com"
         assert result["port"] == 80  # Default HTTP port
         assert result["path"] == "/api"
-        assert result["username"] == "user"
-        assert result["password"] == "pass"
+        assert "username" not in result
+        assert "password" not in result
+        assert "user:pass@" not in result["clean_url"]
 
     def test_parse_url_default_ports(self) -> None:
         """Test URL parsing with default ports."""
@@ -109,6 +108,78 @@ class TestHTTPAPITester:
         # HTTPS default port
         result = self.verifier.parse_url("https://example.com")
         assert result["port"] == 443
+
+    def test_extract_url_credentials_basic(self) -> None:
+        """Test credential extraction from URL without credentials."""
+        username, password = self.verifier._extract_url_credentials(
+            "https://example.com/api"
+        )
+        assert username is None
+        assert password == ""
+
+    def test_extract_url_credentials_with_creds(self) -> None:
+        """Test credential extraction from URL with username and password."""
+        username, password = self.verifier._extract_url_credentials(
+            "http://user:pass@example.com/api"
+        )
+        assert username == "user"
+        assert password == "pass"
+
+    def test_extract_url_credentials_username_only(self) -> None:
+        """Test credential extraction from URL with username only."""
+        username, password = self.verifier._extract_url_credentials(
+            "http://user@example.com/api"
+        )
+        assert username == "user"
+        assert password == ""
+
+    def test_extract_url_credentials_empty_username(self) -> None:
+        """Test credential extraction from URL with empty username and password."""
+        username, password = self.verifier._extract_url_credentials(
+            "http://:pass@example.com/api"
+        )
+        assert username == ""
+        assert password == "pass"
+
+    @patch("builtins.print")
+    def test_mask_credentials_github_actions(self, mock_print: Mock) -> None:
+        """Test that credentials are masked when running in GitHub Actions."""
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}):
+            self.verifier._mask_credentials("user", "pass")
+            mock_print.assert_any_call("::add-mask::user")
+            mock_print.assert_any_call("::add-mask::pass")
+
+    @patch("builtins.print")
+    def test_mask_credentials_not_github_actions(self, mock_print: Mock) -> None:
+        """Test that credentials are not masked outside GitHub Actions."""
+        env = os.environ.copy()
+        env.pop("GITHUB_ACTIONS", None)
+        with patch.dict(os.environ, env, clear=True):
+            self.verifier._mask_credentials("user", "pass")
+            mock_print.assert_not_called()
+
+    @patch("builtins.print")
+    def test_mask_credentials_escapes_special_chars(self, mock_print: Mock) -> None:
+        """Test that special characters are escaped in mask commands."""
+        with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}):
+            self.verifier._mask_credentials("user%name", "pa\nss\r")
+            mock_print.assert_any_call("::add-mask::user%25name")
+            mock_print.assert_any_call("::add-mask::pa%0Ass%0D")
+
+    def test_escape_workflow_value(self) -> None:
+        """Test escaping of GitHub Actions workflow command values."""
+        assert self.verifier._escape_workflow_value("plain") == "plain"
+        assert self.verifier._escape_workflow_value("a%b") == "a%25b"
+        assert self.verifier._escape_workflow_value("a\nb") == "a%0Ab"
+        assert self.verifier._escape_workflow_value("a\rb") == "a%0Db"
+        assert self.verifier._escape_workflow_value("a%\r\n") == "a%25%0D%0A"
+
+    def test_parse_url_ipv6(self) -> None:
+        """Test URL parsing preserves IPv6 bracket notation."""
+        result = self.verifier.parse_url("http://[::1]:8080/api")
+        assert result["host"] == "::1"
+        assert result["port"] == 8080
+        assert "[::1]:8080" in result["clean_url"]
 
     def test_validate_inputs_basic(self) -> None:
         """Test basic input validation."""
