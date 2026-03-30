@@ -168,7 +168,7 @@ class HTTPAPITester:
         if ":" in hostname:
             hostname = f"[{hostname}]"
         sanitized_netloc = hostname
-        if parsed.port:
+        if parsed.port is not None:
             sanitized_netloc += f":{parsed.port}"
         clean_parsed = parsed._replace(netloc=sanitized_netloc)
         clean_url = urlunparse(clean_parsed)
@@ -353,8 +353,8 @@ class HTTPAPITester:
         curl.setopt(pycurl.VERBOSE, config["debug"])
         if config["debug"]:
             # Check if URL contains credentials
-            creds = self._extract_url_credentials(config["url"])
-            if creds[0] or config.get("auth_string"):
+            username, _ = self._extract_url_credentials(config["url"])
+            if username is not None or config.get("auth_string"):
                 self.log(
                     "⚠️  Warning: Debug mode enabled with authentication credentials.",
                     "⚠️",
@@ -397,7 +397,7 @@ class HTTPAPITester:
         if not auth_string:
             # Try to extract from URL
             username, password = self._extract_url_credentials(config["url"])
-            if username:
+            if username is not None:
                 auth_string = f"{username}:{password}"
 
         if auth_string:

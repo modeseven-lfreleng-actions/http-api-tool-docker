@@ -49,7 +49,7 @@ class TestHTTPAPITester:
     without external dependencies.
     """
 
-    verifier: HTTPAPITester = HTTPAPITester()
+    verifier: HTTPAPITester
     temp_summary: Any = None
     temp_output: Any = None
 
@@ -139,7 +139,7 @@ class TestHTTPAPITester:
         assert password == ""
 
     def test_extract_url_credentials_empty_username(self) -> None:
-        """Test credential extraction from URL with empty username and password."""
+        """Test credential extraction from URL with empty username."""
         username, password = self.verifier._extract_url_credentials(
             "http://:pass@example.com/api"
         )
@@ -624,7 +624,7 @@ class TestIntegration:
     using a local go-httpbin service to avoid external dependencies.
     """
 
-    verifier: HTTPAPITester = HTTPAPITester()
+    verifier: HTTPAPITester
 
     def setup_method(self) -> None:
         """Set up test fixtures."""
