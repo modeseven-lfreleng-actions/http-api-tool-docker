@@ -14,7 +14,7 @@ import re
 import sys
 import time
 from io import BytesIO
-from typing import Any, Dict, Optional, Tuple
+from typing import Any
 from urllib.parse import urlparse, urlunparse
 
 import pycurl
@@ -24,9 +24,9 @@ class HTTPAPITester:
     """Main class for HTTP API testing functionality."""
 
     def __init__(self) -> None:
-        self.debug = False
-        self.step_summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
-        self.github_output_file = os.environ.get("GITHUB_OUTPUT")
+        self.debug: bool = False
+        self.step_summary_file: str | None = os.environ.get("GITHUB_STEP_SUMMARY")
+        self.github_output_file: str | None = os.environ.get("GITHUB_OUTPUT")
 
     def log(self, message: str, emoji: str = "") -> None:
         """Log a message with optional emoji."""
@@ -44,7 +44,7 @@ class HTTPAPITester:
         if self.step_summary_file:
             try:
                 with open(self.step_summary_file, "a", encoding="utf-8") as f:
-                    f.write(f"{message}\n")
+                    _ = f.write(f"{message}\n")
             except OSError as e:
                 # Gracefully handle permission errors when running in Docker containers
                 # where the step summary file may not be writable by the current user
@@ -57,9 +57,9 @@ class HTTPAPITester:
                 with open(self.github_output_file, "a", encoding="utf-8") as f:
                     if "\n" in str(value):
                         # Multi-line output needs special handling
-                        f.write(f"{key}<<EOF\n{value}\nEOF\n")
+                        _ = f.write(f"{key}<<EOF\n{value}\nEOF\n")
                     else:
-                        f.write(f"{key}={value}\n")
+                        _ = f.write(f"{key}={value}\n")
             except OSError as e:
                 # Gracefully handle permission errors when running in Docker containers
                 # where the output file may not be writable by the current user
@@ -93,7 +93,7 @@ class HTTPAPITester:
             return headers_json
 
         try:
-            headers = json.loads(headers_json)
+            headers: dict[str, str] = json.loads(headers_json)
             # List of header names that commonly contain sensitive data
             sensitive_headers = {
                 "authorization",
@@ -147,7 +147,7 @@ class HTTPAPITester:
             return body[:max_length] + "... (truncated)"
         return body
 
-    def parse_url(self, url: str) -> Dict[str, Any]:
+    def parse_url(self, url: str) -> dict[str, Any]:
         """Parse URL and extract safe-to-log components.
 
         Returns URL components without credentials.  Credential
@@ -183,7 +183,7 @@ class HTTPAPITester:
             "clean_url": clean_url,
         }
 
-    def _extract_url_credentials(self, url: str) -> Tuple[Optional[str], str]:
+    def _extract_url_credentials(self, url: str) -> tuple[str | None, str]:
         """Extract credentials from a URL string.
 
         Parses the given URL and returns any embedded username
@@ -224,7 +224,7 @@ class HTTPAPITester:
         value = value.replace("\n", "%0A")
         return value
 
-    def _mask_credentials(self, username: Optional[str], password: str) -> None:
+    def _mask_credentials(self, username: str | None, password: str) -> None:
         """Mask credential values in GitHub Actions logs.
 
         Emits ``::add-mask::`` workflow commands so that the
@@ -261,7 +261,7 @@ class HTTPAPITester:
             password = ""
         self._mask_credentials(username, password)
 
-    def validate_inputs(self, **kwargs: Any) -> Dict[str, Any]:
+    def validate_inputs(self, **kwargs: Any) -> dict[str, Any]:
         """Validate and normalize inputs."""
         # Convert string boolean inputs to actual booleans for GitHub Actions
         bool_fields = [
@@ -323,17 +323,17 @@ class HTTPAPITester:
         # Validate regex if provided
         if kwargs.get("regex"):
             try:
-                re.compile(kwargs["regex"])
+                _ = re.compile(kwargs["regex"])
             except re.error:
                 raise ValueError(
-                    f"Error: Invalid regular expression syntax ❌\n"
-                    f"Regex: {kwargs['regex']}"
+                    "Error: Invalid regular expression syntax ❌\n"
+                    + f"Regex: {kwargs['regex']}"
                 )
 
         # Parse request headers JSON if provided
         if kwargs.get("request_headers"):
             try:
-                json.loads(kwargs["request_headers"])
+                _ = json.loads(kwargs["request_headers"])
             except json.JSONDecodeError:
                 raise ValueError("Error: request_headers must be valid JSON ❌")
 
@@ -446,7 +446,7 @@ class HTTPAPITester:
 
         return curl
 
-    def perform_request(self, curl: pycurl.Curl) -> Dict[str, Any]:
+    def perform_request(self, curl: pycurl.Curl) -> dict[str, Any]:
         """Perform HTTP request and return response data."""
         # Prepare buffers
         response_buffer = BytesIO()
@@ -566,7 +566,7 @@ class HTTPAPITester:
 
         return True  # Continue retrying for non-fatal errors
 
-    def test_api(self, **config: Any) -> Dict[str, Any]:
+    def test_api(self, **config: Any) -> dict[str, Any]:
         """Main testing function with retry logic."""
         # Validate inputs
         config = self.validate_inputs(**config)

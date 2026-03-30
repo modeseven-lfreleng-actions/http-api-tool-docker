@@ -31,6 +31,7 @@ Usage:
 import json
 import os
 import tempfile
+from typing import Any
 from unittest.mock import Mock, patch
 
 import pycurl
@@ -47,6 +48,10 @@ class TestHTTPAPITester:
     These tests use mocks to isolate individual methods and test them
     without external dependencies.
     """
+
+    verifier: HTTPAPITester = HTTPAPITester()
+    temp_summary: Any = None
+    temp_output: Any = None
 
     def setup_method(self) -> None:
         """Set up test fixtures."""
@@ -153,7 +158,7 @@ class TestHTTPAPITester:
     def test_mask_credentials_not_github_actions(self, mock_print: Mock) -> None:
         """Test that credentials are not masked outside GitHub Actions."""
         env = os.environ.copy()
-        env.pop("GITHUB_ACTIONS", None)
+        _ = env.pop("GITHUB_ACTIONS", None)
         with patch.dict(os.environ, env, clear=True):
             self.verifier._mask_credentials("user", "pass")
             mock_print.assert_not_called()
@@ -217,7 +222,7 @@ class TestHTTPAPITester:
         # Mock GitHub Actions environment
         with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}):
             with pytest.raises(ValueError, match="Error: a URL must be provided"):
-                self.verifier.validate_inputs(**inputs)
+                _ = self.verifier.validate_inputs(**inputs)
 
     def test_validate_inputs_missing_url_cli(self) -> None:
         """Test that missing URL in CLI context does not raise error in validate_inputs."""
@@ -234,14 +239,14 @@ class TestHTTPAPITester:
         inputs = {"url": "https://example.com", "retries": "invalid"}
 
         with pytest.raises(ValueError, match="retries must be a positive integer"):
-            self.verifier.validate_inputs(**inputs)
+            _ = self.verifier.validate_inputs(**inputs)
 
     def test_validate_inputs_negative_integer(self) -> None:
         """Test validation error for negative integer inputs."""
         inputs = {"url": "https://example.com", "retries": "-1"}
 
         with pytest.raises(ValueError, match="retries must be a positive integer"):
-            self.verifier.validate_inputs(**inputs)
+            _ = self.verifier.validate_inputs(**inputs)
 
     def test_validate_inputs_invalid_regex(self) -> None:
         """Test validation error for invalid regex."""
@@ -251,14 +256,14 @@ class TestHTTPAPITester:
         }
 
         with pytest.raises(ValueError, match="Invalid regular expression syntax"):
-            self.verifier.validate_inputs(**inputs)
+            _ = self.verifier.validate_inputs(**inputs)
 
     def test_validate_inputs_invalid_json_headers(self) -> None:
         """Test validation error for invalid JSON headers."""
         inputs = {"url": "https://example.com", "request_headers": "{invalid json}"}
 
         with pytest.raises(ValueError, match="request_headers must be valid JSON"):
-            self.verifier.validate_inputs(**inputs)
+            _ = self.verifier.validate_inputs(**inputs)
 
     def test_validate_inputs_valid_json_headers(self) -> None:
         """Test validation with valid JSON headers."""
@@ -382,7 +387,7 @@ X-Custom-Header: test-value
             "include_response_body": True,
         }
 
-        self.verifier.create_curl_handle(**config)
+        _ = self.verifier.create_curl_handle(**config)
 
         # Verify basic settings were applied
         mock_curl.setopt.assert_any_call(pycurl.URL, "https://example.com")
@@ -407,7 +412,7 @@ X-Custom-Header: test-value
             "include_response_body": True,
         }
 
-        self.verifier.create_curl_handle(**config)
+        _ = self.verifier.create_curl_handle(**config)
 
         # Verify SSL verification was disabled
         mock_curl.setopt.assert_any_call(pycurl.SSL_VERIFYPEER, 0)
@@ -431,7 +436,7 @@ X-Custom-Header: test-value
             "include_response_body": True,
         }
 
-        self.verifier.create_curl_handle(**config)
+        _ = self.verifier.create_curl_handle(**config)
 
         # Verify authentication was set
         mock_curl.setopt.assert_any_call(pycurl.USERPWD, "user:password")
@@ -455,7 +460,7 @@ X-Custom-Header: test-value
             "include_response_body": True,
         }
 
-        self.verifier.create_curl_handle(**config)
+        _ = self.verifier.create_curl_handle(**config)
 
         # Verify body was set
         expected_body = b'{"test": "data"}'
@@ -480,7 +485,7 @@ X-Custom-Header: test-value
             "include_response_body": True,
         }
 
-        self.verifier.create_curl_handle(**config)
+        _ = self.verifier.create_curl_handle(**config)
 
         # Check that headers were set (the exact call depends on the implementation)
         # We'll verify that setopt was called with HTTPHEADER
@@ -511,7 +516,7 @@ X-Custom-Header: test-value
 
         # Mock file existence check
         with patch("os.path.isfile", return_value=True):
-            self.verifier.create_curl_handle(**config)
+            _ = self.verifier.create_curl_handle(**config)
 
         # Verify CA bundle was set
         mock_curl.setopt.assert_any_call(pycurl.CAINFO, "/path/to/ca-bundle.crt")
@@ -538,7 +543,7 @@ X-Custom-Header: test-value
 
         # Mock file existence check to return False
         with patch("os.path.isfile", return_value=False):
-            self.verifier.create_curl_handle(**config)
+            _ = self.verifier.create_curl_handle(**config)
 
         # Verify CA bundle was NOT set when file doesn't exist
         ca_info_calls = [
@@ -618,6 +623,8 @@ class TestIntegration:
     to result output. Response time tests are now covered by testing.yaml
     using a local go-httpbin service to avoid external dependencies.
     """
+
+    verifier: HTTPAPITester = HTTPAPITester()
 
     def setup_method(self) -> None:
         """Set up test fixtures."""
@@ -741,7 +748,7 @@ class TestIntegration:
     @patch("http_api_tool.verifier.HTTPAPITester.perform_request")
     @patch("time.sleep")
     def test_test_api_with_regex_success(
-        self, mock_sleep: Mock, mock_perform: Mock, mock_create_handle: Mock
+        self, _mock_sleep: Mock, mock_perform: Mock, mock_create_handle: Mock
     ) -> None:
         """Test API verification with successful regex matching."""
         # Mock curl handle
@@ -837,7 +844,7 @@ class TestIntegration:
     @patch("http_api_tool.verifier.HTTPAPITester.perform_request")
     @patch("time.sleep")
     def test_test_api_exhausted_retries(
-        self, mock_sleep: Mock, mock_perform: Mock, mock_create_handle: Mock
+        self, _mock_sleep: Mock, mock_perform: Mock, mock_create_handle: Mock
     ) -> None:
         """Test API verification with exhausted retries."""
         # Mock curl handle
@@ -877,11 +884,11 @@ class TestIntegration:
         }
 
         with pytest.raises(SystemExit):
-            self.verifier.test_api(**config)
+            _ = self.verifier.test_api(**config)
 
     # NOTE: Response time testing is now covered by the testing.yaml workflow
     # using a local go-httpbin service to avoid external dependencies in unit tests.
 
 
 if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
+    _ = pytest.main([__file__, "-v"])
