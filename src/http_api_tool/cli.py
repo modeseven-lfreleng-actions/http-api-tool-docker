@@ -11,7 +11,7 @@ CLI usage and GitHub Actions integration.
 import os
 import sys
 import subprocess
-from typing import Any, Dict, Optional
+from typing import Any
 from urllib.parse import urlparse, urlunparse
 
 import typer
@@ -30,7 +30,7 @@ def version_callback(value: bool) -> None:
 app = typer.Typer(help="A Python tool to test HTTP API services.")
 
 
-def _get_docker_host_gateway() -> Optional[str]:
+def _get_docker_host_gateway() -> str | None:
     """Get the Docker host gateway IP that containers can use to reach the host."""
     try:
         # Try to get the gateway IP from the container's route table
@@ -94,13 +94,13 @@ def main_callback(
     It uses pycurl for HTTP requests to avoid the shell escaping issues of the
     original implementation.
     """
-    pass
+    _ = version
 
 
 @app.command("test")
 def verify(
     url: str = typer.Option(..., help="URL of API server/interface to check"),
-    auth_string: Optional[str] = typer.Option(
+    auth_string: str | None = typer.Option(
         None, help="Authentication string, colon separated username/password"
     ),
     service_name: str = typer.Option(
@@ -116,7 +116,7 @@ def verify(
     expected_http_code: int = typer.Option(
         200, help="HTTP response code to accept from the API service"
     ),
-    regex: Optional[str] = typer.Option(
+    regex: str | None = typer.Option(
         None, help="Verify server response with regular expression"
     ),
     show_header_json: bool = typer.Option(
@@ -128,17 +128,17 @@ def verify(
     http_method: str = typer.Option(
         "GET", help="HTTP method to use (GET, POST, PUT, etc.)"
     ),
-    request_body: Optional[str] = typer.Option(
+    request_body: str | None = typer.Option(
         None, help="Data to send with POST/PUT/PATCH requests"
     ),
     content_type: str = typer.Option(
         "application/json", help="Content type of the request body"
     ),
-    request_headers: Optional[str] = typer.Option(
+    request_headers: str | None = typer.Option(
         None, help="Custom HTTP headers sent in JSON format"
     ),
     verify_ssl: bool = typer.Option(True, help="Verify SSL certificates"),
-    ca_bundle_path: Optional[str] = typer.Option(
+    ca_bundle_path: str | None = typer.Option(
         None, help="Path to CA bundle file for SSL verification"
     ),
     include_response_body: bool = typer.Option(
@@ -206,7 +206,7 @@ def verify(
         raise typer.Exit(1)
 
 
-def _log_action_parameters(config: Dict[str, Any]) -> None:
+def _log_action_parameters(config: dict[str, Any]) -> None:
     """Log the action parameters in a user-friendly format."""
     from .verifier import HTTPAPITester
 

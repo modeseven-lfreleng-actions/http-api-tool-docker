@@ -14,7 +14,7 @@ import re
 import sys
 import time
 from io import BytesIO
-from typing import Any, Dict
+from typing import Any
 from urllib.parse import urlparse, urlunparse
 
 import pycurl
@@ -24,9 +24,9 @@ class HTTPAPITester:
     """Main class for HTTP API testing functionality."""
 
     def __init__(self) -> None:
-        self.debug = False
-        self.step_summary_file = os.environ.get("GITHUB_STEP_SUMMARY")
-        self.github_output_file = os.environ.get("GITHUB_OUTPUT")
+        self.debug: bool = False
+        self.step_summary_file: str | None = os.environ.get("GITHUB_STEP_SUMMARY")
+        self.github_output_file: str | None = os.environ.get("GITHUB_OUTPUT")
 
     def log(self, message: str, emoji: str = "") -> None:
         """Log a message with optional emoji."""
@@ -44,7 +44,7 @@ class HTTPAPITester:
         if self.step_summary_file:
             try:
                 with open(self.step_summary_file, "a", encoding="utf-8") as f:
-                    f.write(f"{message}\n")
+                    _ = f.write(f"{message}\n")
             except OSError as e:
                 # Gracefully handle permission errors when running in Docker containers
                 # where the step summary file may not be writable by the current user
@@ -57,9 +57,9 @@ class HTTPAPITester:
                 with open(self.github_output_file, "a", encoding="utf-8") as f:
                     if "\n" in str(value):
                         # Multi-line output needs special handling
-                        f.write(f"{key}<<EOF\n{value}\nEOF\n")
+                        _ = f.write(f"{key}<<EOF\n{value}\nEOF\n")
                     else:
-                        f.write(f"{key}={value}\n")
+                        _ = f.write(f"{key}={value}\n")
             except OSError as e:
                 # Gracefully handle permission errors when running in Docker containers
                 # where the output file may not be writable by the current user
@@ -93,7 +93,7 @@ class HTTPAPITester:
             return headers_json
 
         try:
-            headers = json.loads(headers_json)
+            headers: dict[str, str] = json.loads(headers_json)
             # List of header names that commonly contain sensitive data
             sensitive_headers = {
                 "authorization",
@@ -147,34 +147,121 @@ class HTTPAPITester:
             return body[:max_length] + "... (truncated)"
         return body
 
-    def parse_url(self, url: str) -> Dict[str, Any]:
-        """Parse URL and extract components."""
-        parsed = urlparse(url)
+    def parse_url(self, url: str) -> dict[str, Any]:
+        """Parse URL and extract safe-to-log components.
 
-        # Extract credentials from URL if present
-        username = None
-        password = None
-        if parsed.username:
-            username = parsed.username
-            password = parsed.password or ""
+        Returns URL components without credentials.  Credential
+        extraction is handled separately by
+        ``_extract_url_credentials`` to prevent sensitive data
+        from flowing into logging functions.
+        """
+        parsed = urlparse(url)
 
         # Determine default port based on scheme
         port = parsed.port
         if port is None:
             port = 443 if parsed.scheme == "https" else 80
 
+        # Reconstruct URL without credentials
+        hostname = parsed.hostname or ""
+        # Re-add brackets for IPv6 literals (urlparse strips them)
+        if ":" in hostname:
+            hostname = f"[{hostname}]"
+        sanitized_netloc = hostname
+        if parsed.port is not None:
+            sanitized_netloc += f":{parsed.port}"
+        clean_parsed = parsed._replace(netloc=sanitized_netloc)
+        clean_url = urlunparse(clean_parsed)
+
         return {
             "protocol": parsed.scheme,
-            "username": username,
-            "password": password,
             "host": parsed.hostname,
             "port": port,
             "path": parsed.path or "/",
             "query": parsed.query,
             "fragment": parsed.fragment,
+            "clean_url": clean_url,
         }
 
-    def validate_inputs(self, **kwargs: Any) -> Dict[str, Any]:
+    def _extract_url_credentials(self, url: str) -> tuple[str | None, str]:
+        """Extract credentials from a URL string.
+
+        Parses the given URL and returns any embedded username
+        and password.  This method is used only for
+        authentication setup and its return value must never
+        be passed to a logging function.
+
+        Args:
+            url: The URL that may contain embedded credentials.
+
+        Returns:
+            A tuple of ``(username, password)``.  *username* is
+            ``None`` when no credentials are present; *password*
+            defaults to an empty string.
+        """
+        parsed = urlparse(url)
+        if parsed.username is not None or parsed.password is not None:
+            return (parsed.username, parsed.password or "")
+        return (None, "")
+
+    @staticmethod
+    def _escape_workflow_value(value: str) -> str:
+        """Escape a value for use in GitHub Actions workflow commands.
+
+        GitHub Actions workflow commands use ``%``, ``\\r``, and
+        ``\\n`` as control characters.  This method replaces them
+        with their percent-encoded equivalents to prevent
+        command injection.
+
+        Args:
+            value: The raw string to escape.
+
+        Returns:
+            The escaped string safe for workflow command output.
+        """
+        value = value.replace("%", "%25")
+        value = value.replace("\r", "%0D")
+        value = value.replace("\n", "%0A")
+        return value
+
+    def _mask_credentials(self, username: str | None, password: str) -> None:
+        """Mask credential values in GitHub Actions logs.
+
+        Emits ``::add-mask::`` workflow commands so that the
+        runner redacts the given values from all subsequent log
+        output.  Values are escaped to prevent workflow command
+        injection.  Outside GitHub Actions this method is a
+        no-op.
+
+        Args:
+            username: The username to mask, or ``None``.
+            password: The password to mask.
+        """
+        if not os.environ.get("GITHUB_ACTIONS"):
+            return
+        if username:
+            print(f"::add-mask::{self._escape_workflow_value(username)}")
+        if password:
+            print(f"::add-mask::{self._escape_workflow_value(password)}")
+
+    def _mask_credentials_from_auth_string(self, auth_string: str) -> None:
+        """Mask both parts of an authentication string.
+
+        Splits *auth_string* on the first ``:`` into a username
+        and password, then delegates to ``_mask_credentials``
+        to register them with the GitHub Actions log masker.
+
+        Args:
+            auth_string: Credentials in ``user:password`` format.
+        """
+        if ":" in auth_string:
+            username, password = auth_string.split(":", 1)
+        else:
+            username = auth_string
+            password = ""
+        self._mask_credentials(username, password)
+
+    def validate_inputs(self, **kwargs: Any) -> dict[str, Any]:
         """Validate and normalize inputs."""
         # Convert string boolean inputs to actual booleans for GitHub Actions
         bool_fields = [
@@ -236,17 +323,17 @@ class HTTPAPITester:
         # Validate regex if provided
         if kwargs.get("regex"):
             try:
-                re.compile(kwargs["regex"])
+                _ = re.compile(kwargs["regex"])
             except re.error:
                 raise ValueError(
-                    f"Error: Invalid regular expression syntax ❌\n"
-                    f"Regex: {kwargs['regex']}"
+                    "Error: Invalid regular expression syntax ❌\n"
+                    + f"Regex: {kwargs['regex']}"
                 )
 
         # Parse request headers JSON if provided
         if kwargs.get("request_headers"):
             try:
-                json.loads(kwargs["request_headers"])
+                _ = json.loads(kwargs["request_headers"])
             except json.JSONDecodeError:
                 raise ValueError("Error: request_headers must be valid JSON ❌")
 
@@ -266,8 +353,8 @@ class HTTPAPITester:
         curl.setopt(pycurl.VERBOSE, config["debug"])
         if config["debug"]:
             # Check if URL contains credentials
-            url_parts = self.parse_url(config["url"])
-            if url_parts["username"] or config.get("auth_string"):
+            username, _ = self._extract_url_credentials(config["url"])
+            if username is not None or config.get("auth_string"):
                 self.log(
                     "⚠️  Warning: Debug mode enabled with authentication credentials.",
                     "⚠️",
@@ -309,13 +396,13 @@ class HTTPAPITester:
         auth_string = config.get("auth_string")
         if not auth_string:
             # Try to extract from URL
-            url_parts = self.parse_url(config["url"])
-            if url_parts["username"]:
-                username = url_parts["username"]
-                password = url_parts["password"] or ""
+            username, password = self._extract_url_credentials(config["url"])
+            if username is not None:
                 auth_string = f"{username}:{password}"
 
         if auth_string:
+            # Mask credentials in GitHub Actions logs
+            self._mask_credentials_from_auth_string(auth_string)
             self.log("Authentication credentials provided", "💬")
             curl.setopt(pycurl.USERPWD, auth_string)
 
@@ -359,7 +446,7 @@ class HTTPAPITester:
 
         return curl
 
-    def perform_request(self, curl: pycurl.Curl) -> Dict[str, Any]:
+    def perform_request(self, curl: pycurl.Curl) -> dict[str, Any]:
         """Perform HTTP request and return response data."""
         # Prepare buffers
         response_buffer = BytesIO()
@@ -479,7 +566,7 @@ class HTTPAPITester:
 
         return True  # Continue retrying for non-fatal errors
 
-    def test_api(self, **config: Any) -> Dict[str, Any]:
+    def test_api(self, **config: Any) -> dict[str, Any]:
         """Main testing function with retry logic."""
         # Validate inputs
         config = self.validate_inputs(**config)
