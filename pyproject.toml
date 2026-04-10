@@ -185,3 +185,9 @@ quiet = false
 whitelist-regex = []
 color = true
 omit-covered-files = false
+
+[tool.basedpyright]
+pythonVersion = "3.10"
+typeCheckingMode = "standard"
+reportMissingImports = "warning"
+reportUninitializedInstanceVariable = "warning"

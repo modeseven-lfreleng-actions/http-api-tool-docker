@@ -49,7 +49,7 @@ class TestHTTPAPITester:
     without external dependencies.
     """
 
-    verifier: HTTPAPITester
+    verifier: HTTPAPITester  # pyright: ignore[reportUninitializedInstanceVariable]
     temp_summary: Any = None
     temp_output: Any = None
 
@@ -632,7 +632,7 @@ class TestIntegration:
     using a local go-httpbin service to avoid external dependencies.
     """
 
-    verifier: HTTPAPITester
+    verifier: HTTPAPITester  # pyright: ignore[reportUninitializedInstanceVariable]
 
     def setup_method(self) -> None:
         """Set up test fixtures."""
