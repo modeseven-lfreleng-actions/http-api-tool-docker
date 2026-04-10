@@ -49,7 +49,7 @@ class TestHTTPAPITester:
     without external dependencies.
     """
 
-    verifier: HTTPAPITester
+    verifier: HTTPAPITester  # pyright: ignore[reportUninitializedInstanceVariable]
     temp_summary: Any = None
     temp_output: Any = None
 
@@ -146,30 +146,30 @@ class TestHTTPAPITester:
         assert username == ""
         assert password == "pass"
 
-    @patch("builtins.print")
-    def test_mask_credentials_github_actions(self, mock_print: Mock) -> None:
+    @patch.object(HTTPAPITester, "_emit_workflow_command")
+    def test_mask_credentials_github_actions(self, mock_emit: Mock) -> None:
         """Test that credentials are masked when running in GitHub Actions."""
         with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}):
             self.verifier._mask_credentials("user", "pass")
-            mock_print.assert_any_call("::add-mask::user")
-            mock_print.assert_any_call("::add-mask::pass")
+            mock_emit.assert_any_call("::add-mask::user")
+            mock_emit.assert_any_call("::add-mask::pass")
 
-    @patch("builtins.print")
-    def test_mask_credentials_not_github_actions(self, mock_print: Mock) -> None:
+    @patch.object(HTTPAPITester, "_emit_workflow_command")
+    def test_mask_credentials_not_github_actions(self, mock_emit: Mock) -> None:
         """Test that credentials are not masked outside GitHub Actions."""
         env = os.environ.copy()
         _ = env.pop("GITHUB_ACTIONS", None)
         with patch.dict(os.environ, env, clear=True):
             self.verifier._mask_credentials("user", "pass")
-            mock_print.assert_not_called()
+            mock_emit.assert_not_called()
 
-    @patch("builtins.print")
-    def test_mask_credentials_escapes_special_chars(self, mock_print: Mock) -> None:
+    @patch.object(HTTPAPITester, "_emit_workflow_command")
+    def test_mask_credentials_escapes_special_chars(self, mock_emit: Mock) -> None:
         """Test that special characters are escaped in mask commands."""
         with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}):
             self.verifier._mask_credentials("user%name", "pa\nss\r")
-            mock_print.assert_any_call("::add-mask::user%25name")
-            mock_print.assert_any_call("::add-mask::pa%0Ass%0D")
+            mock_emit.assert_any_call("::add-mask::user%25name")
+            mock_emit.assert_any_call("::add-mask::pa%0Ass%0D")
 
     def test_escape_workflow_value(self) -> None:
         """Test escaping of GitHub Actions workflow command values."""
@@ -178,6 +178,14 @@ class TestHTTPAPITester:
         assert self.verifier._escape_workflow_value("a\nb") == "a%0Ab"
         assert self.verifier._escape_workflow_value("a\rb") == "a%0Db"
         assert self.verifier._escape_workflow_value("a%\r\n") == "a%25%0D%0A"
+
+    def test_emit_workflow_command(
+        self, capsysbinary: pytest.CaptureFixture[bytes]
+    ) -> None:
+        """Test that workflow commands are written as binary to stdout."""
+        self.verifier._emit_workflow_command("::add-mask::secret")
+        captured = capsysbinary.readouterr()
+        assert captured.out == b"::add-mask::secret\n"
 
     def test_parse_url_ipv6(self) -> None:
         """Test URL parsing preserves IPv6 bracket notation."""
@@ -624,7 +632,7 @@ class TestIntegration:
     using a local go-httpbin service to avoid external dependencies.
     """
 
-    verifier: HTTPAPITester
+    verifier: HTTPAPITester  # pyright: ignore[reportUninitializedInstanceVariable]
 
     def setup_method(self) -> None:
         """Set up test fixtures."""

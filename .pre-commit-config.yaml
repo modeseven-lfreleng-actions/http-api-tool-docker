@@ -115,6 +115,11 @@ repos:
       - id: codespell
         args: ["--ignore-words=.codespell"]
 
+  - repo: https://github.com/DetachHead/basedpyright-prek-mirror
+    rev: d58fe7fc44458fa7e41e2d38c04598a3c87833f2  # frozen: 1.38.3
+    hooks:
+      - id: basedpyright
+
   - repo: https://github.com/modeseven-lfit/gha-workflow-linter
     rev: a7caf8f3a1a05688d1cee46615ff94def617e5a3  # frozen: v1.0.2
     hooks:
