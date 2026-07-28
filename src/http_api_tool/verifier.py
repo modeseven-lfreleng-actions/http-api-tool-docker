@@ -240,7 +240,7 @@ class HTTPAPITester:
             command: The complete workflow command string.
         """
         sys.stdout.flush()
-        sys.stdout.buffer.write(f"{command}\n".encode("utf-8"))
+        sys.stdout.buffer.write(f"{command}\n".encode())
         sys.stdout.buffer.flush()
 
     def _mask_credentials(self, username: str | None, password: str) -> None:

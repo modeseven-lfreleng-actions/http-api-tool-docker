@@ -9,8 +9,8 @@ CLI usage and GitHub Actions integration.
 """
 
 import os
-import sys
 import subprocess
+import sys
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
