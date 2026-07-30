@@ -102,11 +102,12 @@ jobs:
           tags: http-api-tool:test
           build-args: |
             VERSION=0.0.0.dev0
+          # yamllint disable rule:line-length
           cache-from: |
-            # yamllint disable-line rule:line-length
             ${{ github.event_name == 'workflow_dispatch' && inputs.bust_cache == true && 'type=gha,scope=docker-build-never-exists' || 'type=gha,scope=docker-build' }}
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-base
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-deps
+          # yamllint enable rule:line-length
           cache-to: type=gha,mode=max,scope=docker-build
           no-cache: ${{ github.event_name == 'workflow_dispatch' && inputs.bust_cache == true }}
           labels: |
@@ -255,11 +256,12 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             VERSION=0.0.0.dev0
+          # yamllint disable rule:line-length
           cache-from: |
-            # yamllint disable-line rule:line-length
             ${{ github.event_name == 'workflow_dispatch' && inputs.bust_cache == true && 'type=gha,scope=docker-publish-never-exists' || 'type=gha,scope=docker-publish' }}
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-base
             type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:cache-deps
+          # yamllint enable rule:line-length
           no-cache: ${{ github.event_name == 'workflow_dispatch' && inputs.bust_cache == true }}
           cache-to: |
             type=gha,mode=max,scope=docker-publish
@@ -269,7 +271,9 @@ jobs:
       - name: Verify published image
         run: |
           echo "Image published successfully to GHCR"
-          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Tags: ${STEPS_META_OUTPUTS_TAGS}"
+        env:
+          STEPS_META_OUTPUTS_TAGS: ${{ steps.meta.outputs.tags }}
 
   # Python build for additional testing (runs in parallel with container pipeline)
   python-build:
@@ -311,6 +315,7 @@ jobs:
           path: |
             ~/.cache/uv
             .venv
+          # yamllint disable-line rule:line-length
           key: uv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
           restore-keys: |
             uv-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-
@@ -424,7 +429,6 @@ jobs:
           python_version: "${{ matrix.python-version }}"
 
 
-
   # CLI integration tests (after container pipeline)
   cli-tests:
     name: 'CLI Integration Tests'
@@ -460,6 +464,7 @@ jobs:
           path: |
             ~/.cache/uv
             .venv
+          # yamllint disable-line rule:line-length
           key: uv-cli-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-${{ hashFiles('pyproject.toml', 'uv.lock') }}
           restore-keys: |
             uv-cli-${{ runner.os }}-${{ steps.setup-python.outputs.python-version }}-
@@ -491,8 +496,8 @@ jobs:
       - name: Test CLI with various scenarios
         run: |
           # Use the HTTPS service URL and CA bundle from the go-httpbin action
-          SERVICE_URL="${{ steps.go-httpbin.outputs.service-url }}"
-          CA_BUNDLE="${{ steps.go-httpbin.outputs.ca-cert-path }}"
+          SERVICE_URL="${STEPS_GO_HTTPBIN_OUTPUTS_SERVICE_URL}"
+          CA_BUNDLE="${STEPS_GO_HTTPBIN_OUTPUTS_CA_CERT_PATH}"
 
           echo "Testing with service URL: $SERVICE_URL"
           echo "Using CA bundle: $CA_BUNDLE"
@@ -532,6 +537,9 @@ jobs:
             --expected-http-code 401 \
             --ca-bundle-path "$CA_BUNDLE" \
             --debug || echo "Expected 401 for unauth request"
+        env:
+          STEPS_GO_HTTPBIN_OUTPUTS_SERVICE_URL: ${{ steps.go-httpbin.outputs.service-url }}
+          STEPS_GO_HTTPBIN_OUTPUTS_CA_CERT_PATH: ${{ steps.go-httpbin.outputs.ca-cert-path }}
 
       - name: Test CLI error handling
         run: |
@@ -640,7 +648,7 @@ jobs:
         id: test-urls
         run: |
           # Get the gateway IP URL from go-httpbin
-          GATEWAY_URL="${{ steps.go-httpbin.outputs.service-url }}"
+          GATEWAY_URL="${STEPS_GO_HTTPBIN_OUTPUTS_SERVICE_URL}"
           echo "Gateway URL from action: $GATEWAY_URL"
 
           # For docker mode, we can use the gateway URL directly
@@ -657,6 +665,8 @@ jobs:
           echo "host-url=${HOST_URL}" >> "$GITHUB_OUTPUT"
           echo "Host URL for uvx tests: $HOST_URL"
           echo "✅ Prepared test URLs for both deployment modes"
+        env:
+          STEPS_GO_HTTPBIN_OUTPUTS_SERVICE_URL: ${{ steps.go-httpbin.outputs.service-url }}
 
       - name: Test uvx deployment with host URL
         uses: ./
@@ -691,7 +701,6 @@ jobs:
         run: |
           echo "✅ Docker mode successfully connected using gateway IP"
           echo "Docker containers use the gateway IP to access host services"
-
 
 
       - name: Test uvx with POST request
@@ -848,8 +857,8 @@ jobs:
           echo "Using image tag: $IMAGE_TAG"
 
           # Get service URL and CA bundle from go-httpbin action
-          SERVICE_URL="${{ steps.go-httpbin.outputs.service-url }}"
-          CA_BUNDLE="${{ steps.go-httpbin.outputs.ca-cert-path }}"
+          SERVICE_URL="${STEPS_GO_HTTPBIN_OUTPUTS_SERVICE_URL}"
+          CA_BUNDLE="${STEPS_GO_HTTPBIN_OUTPUTS_CA_CERT_PATH}"
 
           # Test the http-api-tool against go-httpbin with HTTPS
           docker run --rm --network host \
@@ -860,6 +869,9 @@ jobs:
             --ca-bundle-path "/tmp/ca-bundle.pem" \
             --debug \
             --retries 3
+        env:
+          STEPS_GO_HTTPBIN_OUTPUTS_SERVICE_URL: ${{ steps.go-httpbin.outputs.service-url }}
+          STEPS_GO_HTTPBIN_OUTPUTS_CA_CERT_PATH: ${{ steps.go-httpbin.outputs.ca-cert-path }}
 
       - name: Clean up test containers
         if: always()
