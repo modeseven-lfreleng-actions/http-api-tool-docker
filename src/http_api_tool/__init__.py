@@ -10,8 +10,7 @@ original implementation.
 """
 
 from ._version import __version__
-
 from .cli import app, main
 from .verifier import HTTPAPITester
 
-__all__ = ["HTTPAPITester", "app", "main", "__version__"]
+__all__ = ["HTTPAPITester", "__version__", "app", "main"]
