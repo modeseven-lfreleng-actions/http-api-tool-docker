@@ -93,9 +93,10 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          STEPS_TAG_VALIDATE_OUTPUTS_TAG_NAME: ${{ steps.tag-validate.outputs.tag_name }}
         run: |
           # Ensure draft release exists
-          TAG="${{ steps.tag-validate.outputs.tag_name }}"
+          TAG="${STEPS_TAG_VALIDATE_OUTPUTS_TAG_NAME}"
           # Check if release exists and get its draft status
           if RELEASE_INFO=$(gh release view "$TAG" \
             --json isDraft 2>/dev/null); then
@@ -289,8 +290,8 @@ jobs:
             # Grype summary
             {
               echo "## SBOM Summary"
-              echo "SBOM count: ${{ steps.sbom.outputs.component_count }}"
-              echo "Tool used: ${{ steps.sbom.outputs.dependency_manager }}"
+              echo "SBOM count: ${STEPS_SBOM_OUTPUTS_COMPONENT_COUNT}"
+              echo "Tool used: ${STEPS_SBOM_OUTPUTS_DEPENDENCY_MANAGER}"
               echo ""
               echo "## Grype Vulnerability Scan"
               if [ -f grype-results.txt ]; then
@@ -303,6 +304,9 @@ jobs:
               echo "--- Grype scan results ---"
               cat grype-results.txt
             fi
+        env:
+          STEPS_SBOM_OUTPUTS_COMPONENT_COUNT: ${{ steps.sbom.outputs.component_count }}
+          STEPS_SBOM_OUTPUTS_DEPENDENCY_MANAGER: ${{ steps.sbom.outputs.dependency_manager }}
 
       # Fails the job if Grype found vulnerabilities, unless the
       # NO_BLOCK_AUDIT_FAIL repository variable is set to 'true'.
@@ -432,8 +436,11 @@ jobs:
       - name: Verify published image
         run: |
           echo "Docker image published successfully to GHCR"
-          echo "Version: ${{ needs.tag-validate.outputs.tag }}"
-          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Version: ${NEEDS_TAG_VALIDATE_OUTPUTS_TAG}"
+          echo "Tags: ${STEPS_META_OUTPUTS_TAGS}"
+        env:
+          NEEDS_TAG_VALIDATE_OUTPUTS_TAG: ${{ needs.tag-validate.outputs.tag }}
+          STEPS_META_OUTPUTS_TAGS: ${{ steps.meta.outputs.tags }}
 
   pypi:
     name: 'Release PyPI Package'
@@ -542,8 +549,9 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          NEEDS_TAG_VALIDATE_OUTPUTS_TAG: ${{ needs.tag-validate.outputs.tag }}
         run: |
-          TAG="${{ needs.tag-validate.outputs.tag }}"
+          TAG="${NEEDS_TAG_VALIDATE_OUTPUTS_TAG}"
           if gh release view "$TAG" --json isDraft --jq '.isDraft' \
               2>/dev/null | grep -q "false"; then
             echo "Release $TAG is already promoted, skipping promotion"
@@ -570,7 +578,8 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
+          NEEDS_TAG_VALIDATE_OUTPUTS_TAG: ${{ needs.tag-validate.outputs.tag }}
         run: |
-          TAG="${{ needs.tag-validate.outputs.tag }}"
+          TAG="${NEEDS_TAG_VALIDATE_OUTPUTS_TAG}"
           RELEASE_URL=$(gh release view "$TAG" --json url --jq '.url')
           echo "release_url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
