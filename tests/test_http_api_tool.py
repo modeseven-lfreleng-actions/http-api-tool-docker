@@ -37,7 +37,15 @@ from unittest.mock import Mock, patch
 import pycurl
 import pytest
 
-# Import the module to test
+from http_api_tool.curl_client import (
+    check_regex_match,
+    create_curl_handle,
+    parse_headers_to_json,
+    perform_request,
+)
+from http_api_tool.reporting import ActionReporter
+from http_api_tool.sanitize import extract_url_credentials, parse_url
+from http_api_tool.validation import validate_inputs
 from http_api_tool.verifier import HTTPAPITester
 
 
@@ -50,12 +58,14 @@ class TestHTTPAPITester:
     """
 
     verifier: HTTPAPITester  # pyright: ignore[reportUninitializedInstanceVariable]
+    reporter: ActionReporter  # pyright: ignore[reportUninitializedInstanceVariable]
     temp_summary: Any = None
     temp_output: Any = None
 
     def setup_method(self) -> None:
         """Set up test fixtures."""
-        self.verifier = HTTPAPITester()
+        self.reporter = ActionReporter()
+        self.verifier = HTTPAPITester(self.reporter)
         # Create temporary files for GitHub Actions simulation
         self.temp_summary = tempfile.NamedTemporaryFile(mode="w+", delete=False)
         self.temp_output = tempfile.NamedTemporaryFile(mode="w+", delete=False)
@@ -64,8 +74,8 @@ class TestHTTPAPITester:
         os.environ["GITHUB_STEP_SUMMARY"] = self.temp_summary.name
         os.environ["GITHUB_OUTPUT"] = self.temp_output.name
 
-        self.verifier.step_summary_file = self.temp_summary.name
-        self.verifier.github_output_file = self.temp_output.name
+        self.reporter.step_summary_file = self.temp_summary.name
+        self.reporter.github_output_file = self.temp_output.name
 
     def teardown_method(self) -> None:
         """Clean up test fixtures."""
@@ -84,7 +94,7 @@ class TestHTTPAPITester:
     def test_parse_url_basic(self) -> None:
         """Test basic URL parsing."""
         url = "https://example.com:8080/api/v1"
-        result = self.verifier.parse_url(url)
+        result = parse_url(url)
 
         assert result["protocol"] == "https"
         assert result["host"] == "example.com"
@@ -94,7 +104,7 @@ class TestHTTPAPITester:
     def test_parse_url_with_credentials(self) -> None:
         """Test URL parsing with embedded credentials."""
         url = "http://user:pass@example.com/api"
-        result = self.verifier.parse_url(url)
+        result = parse_url(url)
 
         assert result["protocol"] == "http"
         assert result["host"] == "example.com"
@@ -107,89 +117,81 @@ class TestHTTPAPITester:
     def test_parse_url_default_ports(self) -> None:
         """Test URL parsing with default ports."""
         # HTTP default port
-        result = self.verifier.parse_url("http://example.com")
+        result = parse_url("http://example.com")
         assert result["port"] == 80
 
         # HTTPS default port
-        result = self.verifier.parse_url("https://example.com")
+        result = parse_url("https://example.com")
         assert result["port"] == 443
 
     def test_extract_url_credentials_basic(self) -> None:
         """Test credential extraction from URL without credentials."""
-        username, password = self.verifier._extract_url_credentials(
-            "https://example.com/api"
-        )
+        username, password = extract_url_credentials("https://example.com/api")
         assert username is None
         assert password == ""
 
     def test_extract_url_credentials_with_creds(self) -> None:
         """Test credential extraction from URL with username and password."""
-        username, password = self.verifier._extract_url_credentials(
-            "http://user:pass@example.com/api"
-        )
+        username, password = extract_url_credentials("http://user:pass@example.com/api")
         assert username == "user"
         assert password == "pass"
 
     def test_extract_url_credentials_username_only(self) -> None:
         """Test credential extraction from URL with username only."""
-        username, password = self.verifier._extract_url_credentials(
-            "http://user@example.com/api"
-        )
+        username, password = extract_url_credentials("http://user@example.com/api")
         assert username == "user"
         assert password == ""
 
     def test_extract_url_credentials_empty_username(self) -> None:
         """Test credential extraction from URL with empty username."""
-        username, password = self.verifier._extract_url_credentials(
-            "http://:pass@example.com/api"
-        )
+        username, password = extract_url_credentials("http://:pass@example.com/api")
         assert username == ""
         assert password == "pass"
 
-    @patch.object(HTTPAPITester, "_emit_workflow_command")
+    @patch.object(ActionReporter, "emit_workflow_command")
     def test_mask_credentials_github_actions(self, mock_emit: Mock) -> None:
         """Test that credentials are masked when running in GitHub Actions."""
         with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}):
-            self.verifier._mask_credentials("user", "pass")
+            self.reporter.mask_credentials("user", "pass")
             mock_emit.assert_any_call("::add-mask::user")
             mock_emit.assert_any_call("::add-mask::pass")
 
-    @patch.object(HTTPAPITester, "_emit_workflow_command")
+    @patch.object(ActionReporter, "emit_workflow_command")
     def test_mask_credentials_not_github_actions(self, mock_emit: Mock) -> None:
         """Test that credentials are not masked outside GitHub Actions."""
         env = os.environ.copy()
         _ = env.pop("GITHUB_ACTIONS", None)
         with patch.dict(os.environ, env, clear=True):
-            self.verifier._mask_credentials("user", "pass")
+            self.reporter.mask_credentials("user", "pass")
             mock_emit.assert_not_called()
 
-    @patch.object(HTTPAPITester, "_emit_workflow_command")
+    @patch.object(ActionReporter, "emit_workflow_command")
     def test_mask_credentials_escapes_special_chars(self, mock_emit: Mock) -> None:
         """Test that special characters are escaped in mask commands."""
         with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}):
-            self.verifier._mask_credentials("user%name", "pa\nss\r")
+            self.reporter.mask_credentials("user%name", "pa\nss\r")
             mock_emit.assert_any_call("::add-mask::user%25name")
             mock_emit.assert_any_call("::add-mask::pa%0Ass%0D")
 
     def test_escape_workflow_value(self) -> None:
         """Test escaping of GitHub Actions workflow command values."""
-        assert self.verifier._escape_workflow_value("plain") == "plain"
-        assert self.verifier._escape_workflow_value("a%b") == "a%25b"
-        assert self.verifier._escape_workflow_value("a\nb") == "a%0Ab"
-        assert self.verifier._escape_workflow_value("a\rb") == "a%0Db"
-        assert self.verifier._escape_workflow_value("a%\r\n") == "a%25%0D%0A"
+        assert self.reporter.escape_workflow_value("plain") == "plain"
+        assert self.reporter.escape_workflow_value("a%b") == "a%25b"
+        assert self.reporter.escape_workflow_value("a\nb") == "a%0Ab"
+        assert self.reporter.escape_workflow_value("a\rb") == "a%0Db"
+        assert self.reporter.escape_workflow_value("a%\r\n") == "a%25%0D%0A"
 
     def test_emit_workflow_command(
         self, capsysbinary: pytest.CaptureFixture[bytes]
     ) -> None:
         """Test that workflow commands are written as binary to stdout."""
-        self.verifier._emit_workflow_command("::add-mask::secret")
+        self.reporter.emit_workflow_command("::add-mask::secret")
         captured = capsysbinary.readouterr()
         assert captured.out == b"::add-mask::secret\n"
 
     def test_parse_url_ipv6(self) -> None:
         """Test URL parsing preserves IPv6 bracket notation."""
-        result = self.verifier.parse_url("http://[::1]:8080/api")
+        result = parse_url("http://[::1]:8080/api")
         assert result["host"] == "::1"
         assert result["port"] == 8080
         assert "[::1]:8080" in result["clean_url"]
@@ -205,7 +207,7 @@ class TestHTTPAPITester:
             "debug": "false",
         }
 
-        result = self.verifier.validate_inputs(**inputs)
+        result = validate_inputs(**inputs)
 
         assert result["url"] == "https://example.com"
         assert result["retries"] == 3
@@ -219,7 +221,7 @@ class TestHTTPAPITester:
         os.environ["HTTP_API_URL"] = "https://env-example.com"
 
         inputs = {"retries": "3"}
-        result = self.verifier.validate_inputs(**inputs)
+        result = validate_inputs(**inputs)
 
         assert result["url"] == "https://env-example.com"
 
@@ -230,7 +232,7 @@ class TestHTTPAPITester:
         # Mock GitHub Actions environment
         with patch.dict(os.environ, {"GITHUB_ACTIONS": "true"}):
             with pytest.raises(ValueError, match="Error: a URL must be provided"):
-                _ = self.verifier.validate_inputs(**inputs)
+                _ = validate_inputs(**inputs)
 
     def test_validate_inputs_missing_url_cli(self) -> None:
         """Test that missing URL in CLI context does not raise error in validate_inputs."""
@@ -239,7 +241,7 @@ class TestHTTPAPITester:
         # Ensure we're not in GitHub Actions context
         with patch.dict(os.environ, {}, clear=True):
             # This should not raise an error since URL validation is skipped in CLI mode
-            result = self.verifier.validate_inputs(**inputs)
+            result = validate_inputs(**inputs)
             assert result["retries"] == 3
 
     def test_validate_inputs_invalid_integer(self) -> None:
@@ -247,14 +249,14 @@ class TestHTTPAPITester:
         inputs = {"url": "https://example.com", "retries": "invalid"}
 
         with pytest.raises(ValueError, match="retries must be a positive integer"):
-            _ = self.verifier.validate_inputs(**inputs)
+            _ = validate_inputs(**inputs)
 
     def test_validate_inputs_negative_integer(self) -> None:
         """Test validation error for negative integer inputs."""
         inputs = {"url": "https://example.com", "retries": "-1"}
 
         with pytest.raises(ValueError, match="retries must be a positive integer"):
-            _ = self.verifier.validate_inputs(**inputs)
+            _ = validate_inputs(**inputs)
 
     def test_validate_inputs_invalid_regex(self) -> None:
         """Test validation error for invalid regex."""
@@ -264,14 +266,14 @@ class TestHTTPAPITester:
         }
 
         with pytest.raises(ValueError, match="Invalid regular expression syntax"):
-            _ = self.verifier.validate_inputs(**inputs)
+            _ = validate_inputs(**inputs)
 
     def test_validate_inputs_invalid_json_headers(self) -> None:
         """Test validation error for invalid JSON headers."""
         inputs = {"url": "https://example.com", "request_headers": "{invalid json}"}
 
         with pytest.raises(ValueError, match="request_headers must be valid JSON"):
-            _ = self.verifier.validate_inputs(**inputs)
+            _ = validate_inputs(**inputs)
 
     def test_validate_inputs_valid_json_headers(self) -> None:
         """Test validation with valid JSON headers."""
@@ -280,7 +282,7 @@ class TestHTTPAPITester:
             "request_headers": '{"Content-Type": "application/json", "X-API-Key": "test"}',
         }
 
-        result = self.verifier.validate_inputs(**inputs)
+        result = validate_inputs(**inputs)
         assert (
             result["request_headers"]
             == '{"Content-Type": "application/json", "X-API-Key": "test"}'
@@ -296,7 +298,7 @@ X-Custom-Header: test-value
 
 """
 
-        result = self.verifier._parse_headers_to_json(headers_text)
+        result = parse_headers_to_json(headers_text)
         parsed = json.loads(result)
 
         assert parsed["Content-Type"] == "application/json"
@@ -306,7 +308,7 @@ X-Custom-Header: test-value
 
     def test_parse_headers_to_json_empty(self) -> None:
         """Test headers parsing with empty input."""
-        result = self.verifier._parse_headers_to_json("")
+        result = parse_headers_to_json("")
         assert result == "{}"
 
     def test_check_regex_match_success(self) -> None:
@@ -314,7 +316,7 @@ X-Custom-Header: test-value
         response_body = b'{"status": "success", "message": "API is working"}'
         regex_pattern = r'"status":\s*"success"'
 
-        result = self.verifier.check_regex_match(response_body, regex_pattern)
+        result = check_regex_match(response_body, regex_pattern)
         assert result is True
 
     def test_check_regex_match_failure(self) -> None:
@@ -322,37 +324,37 @@ X-Custom-Header: test-value
         response_body = b'{"status": "error", "message": "API is down"}'
         regex_pattern = r'"status":\s*"success"'
 
-        result = self.verifier.check_regex_match(response_body, regex_pattern)
+        result = check_regex_match(response_body, regex_pattern)
         assert result is False
 
     def test_check_regex_match_no_pattern(self) -> None:
         """Test regex matching with no pattern (should return True)."""
         response_body = b'{"status": "success"}'
 
-        result = self.verifier.check_regex_match(response_body, "")
+        result = check_regex_match(response_body, "")
         assert result is True
 
     def test_handle_curl_error_non_fatal(self) -> None:
         """Test handling of non-fatal cURL errors."""
         # Test connection timeout (should continue retrying)
-        result = self.verifier.handle_curl_error(7, "Failed to connect")
+        result = self.verifier.handle_curl_error(7)
         assert result is True
 
     def test_handle_curl_error_fatal(self) -> None:
         """Test handling of fatal cURL errors."""
         # Test SSL error (should stop retrying)
-        result = self.verifier.handle_curl_error(35, "SSL connect error")
+        result = self.verifier.handle_curl_error(35)
         assert result is False
 
     def test_handle_curl_error_unknown(self) -> None:
         """Test handling of unknown cURL errors."""
         # Test unknown error code (should continue retrying)
-        result = self.verifier.handle_curl_error(999, "Unknown error")
+        result = self.verifier.handle_curl_error(999)
         assert result is True
 
     def test_write_step_summary(self) -> None:
         """Test writing to GitHub Actions step summary."""
-        self.verifier.write_step_summary("Test summary message")
+        self.reporter.write_step_summary("Test summary message")
 
         with open(self.temp_summary.name, "r") as f:
             content = f.read()
@@ -361,7 +363,7 @@ X-Custom-Header: test-value
 
     def test_write_github_output_single_line(self) -> None:
         """Test writing single-line output to GitHub Actions."""
-        self.verifier.write_github_output("test_key", "test_value")
+        self.reporter.write_github_output("test_key", "test_value")
 
         with open(self.temp_output.name, "r") as f:
             content = f.read()
@@ -371,14 +373,14 @@ X-Custom-Header: test-value
     def test_write_github_output_multi_line(self) -> None:
         """Test writing multi-line output to GitHub Actions."""
         multi_line_value = "line1\nline2\nline3"
-        self.verifier.write_github_output("test_key", multi_line_value)
+        self.reporter.write_github_output("test_key", multi_line_value)
 
         with open(self.temp_output.name, "r") as f:
             content = f.read()
 
         assert "test_key<<EOF\nline1\nline2\nline3\nEOF\n" in content
 
-    @patch("http_api_tool.verifier.pycurl.Curl")
+    @patch("http_api_tool.curl_client.pycurl.Curl")
     def test_create_curl_handle_basic(self, mock_curl_class: Mock) -> None:
         """Test basic cURL handle creation."""
         mock_curl = Mock()
@@ -395,7 +397,7 @@ X-Custom-Header: test-value
             "include_response_body": True,
         }
 
-        _ = self.verifier.create_curl_handle(**config)
+        _ = create_curl_handle(self.reporter, **config)
 
         # Verify basic settings were applied
         mock_curl.setopt.assert_any_call(pycurl.URL, "https://example.com")
@@ -403,7 +405,7 @@ X-Custom-Header: test-value
         mock_curl.setopt.assert_any_call(pycurl.CUSTOMREQUEST, "GET")
         mock_curl.setopt.assert_any_call(pycurl.VERBOSE, False)
 
-    @patch("http_api_tool.verifier.pycurl.Curl")
+    @patch("http_api_tool.curl_client.pycurl.Curl")
     def test_create_curl_handle_ssl_disabled(self, mock_curl_class: Mock) -> None:
         """Test cURL handle creation with SSL verification disabled."""
         mock_curl = Mock()
@@ -420,13 +422,13 @@ X-Custom-Header: test-value
             "include_response_body": True,
         }
 
-        _ = self.verifier.create_curl_handle(**config)
+        _ = create_curl_handle(self.reporter, **config)
 
         # Verify SSL verification was disabled
         mock_curl.setopt.assert_any_call(pycurl.SSL_VERIFYPEER, 0)
         mock_curl.setopt.assert_any_call(pycurl.SSL_VERIFYHOST, 0)
 
-    @patch("http_api_tool.verifier.pycurl.Curl")
+    @patch("http_api_tool.curl_client.pycurl.Curl")
     def test_create_curl_handle_with_auth(self, mock_curl_class: Mock) -> None:
         """Test cURL handle creation with authentication."""
         mock_curl = Mock()
@@ -444,12 +446,12 @@ X-Custom-Header: test-value
             "include_response_body": True,
         }
 
-        _ = self.verifier.create_curl_handle(**config)
+        _ = create_curl_handle(self.reporter, **config)
 
         # Verify authentication was set
         mock_curl.setopt.assert_any_call(pycurl.USERPWD, "user:password")
 
-    @patch("http_api_tool.verifier.pycurl.Curl")
+    @patch("http_api_tool.curl_client.pycurl.Curl")
     def test_create_curl_handle_with_body(self, mock_curl_class: Mock) -> None:
         """Test cURL handle creation with request body."""
         mock_curl = Mock()
@@ -468,14 +470,14 @@ X-Custom-Header: test-value
             "include_response_body": True,
         }
 
-        _ = self.verifier.create_curl_handle(**config)
+        _ = create_curl_handle(self.reporter, **config)
 
         # Verify body was set
         expected_body = b'{"test": "data"}'
         mock_curl.setopt.assert_any_call(pycurl.POSTFIELDS, expected_body)
         mock_curl.setopt.assert_any_call(pycurl.POSTFIELDSIZE, len(expected_body))
 
-    @patch("http_api_tool.verifier.pycurl.Curl")
+    @patch("http_api_tool.curl_client.pycurl.Curl")
     def test_create_curl_handle_with_headers(self, mock_curl_class: Mock) -> None:
         """Test cURL handle creation with custom headers."""
         mock_curl = Mock()
@@ -493,7 +495,7 @@ X-Custom-Header: test-value
             "include_response_body": True,
         }
 
-        _ = self.verifier.create_curl_handle(**config)
+        _ = create_curl_handle(self.reporter, **config)
 
         # Check that headers were set (the exact call depends on the implementation)
         # We'll verify that setopt was called with HTTPHEADER
@@ -504,7 +506,7 @@ X-Custom-Header: test-value
         ]
         assert len(header_calls) > 0
 
-    @patch("http_api_tool.verifier.pycurl.Curl")
+    @patch("http_api_tool.curl_client.pycurl.Curl")
     def test_create_curl_handle_with_ca_bundle(self, mock_curl_class: Mock) -> None:
         """Test cURL handle creation with custom CA bundle."""
         mock_curl = Mock()
@@ -524,12 +526,12 @@ X-Custom-Header: test-value
 
         # Mock file existence check
         with patch("os.path.isfile", return_value=True):
-            _ = self.verifier.create_curl_handle(**config)
+            _ = create_curl_handle(self.reporter, **config)
 
         # Verify CA bundle was set
         mock_curl.setopt.assert_any_call(pycurl.CAINFO, "/path/to/ca-bundle.crt")
 
-    @patch("http_api_tool.verifier.pycurl.Curl")
+    @patch("http_api_tool.curl_client.pycurl.Curl")
     def test_create_curl_handle_with_invalid_ca_bundle(
         self, mock_curl_class: Mock
     ) -> None:
@@ -551,7 +553,7 @@ X-Custom-Header: test-value
 
         # Mock file existence check to return False
         with patch("os.path.isfile", return_value=False):
-            _ = self.verifier.create_curl_handle(**config)
+            _ = create_curl_handle(self.reporter, **config)
 
         # Verify CA bundle was NOT set when file doesn't exist
         ca_info_calls = [
@@ -578,7 +580,7 @@ X-Custom-Header: test-value
         }[info_type]
 
         # Mock response data
-        with patch("http_api_tool.verifier.BytesIO") as mock_bytesio:
+        with patch("http_api_tool.curl_client.BytesIO") as mock_bytesio:
             response_buffer = Mock()
             header_buffer = Mock()
             response_buffer.getvalue.return_value = b'{"status": "ok"}'
@@ -588,7 +590,7 @@ X-Custom-Header: test-value
 
             mock_bytesio.side_effect = [response_buffer, header_buffer]
 
-            result = self.verifier.perform_request(mock_curl)
+            result = perform_request(mock_curl)
 
             assert result["success"] is True
             assert result["http_code"] == 200
@@ -608,7 +610,7 @@ X-Custom-Header: test-value
         # Mock cURL error
         mock_curl.perform.side_effect = pycurl.error(7, "Failed to connect to host")
 
-        with patch("http_api_tool.verifier.BytesIO") as mock_bytesio:
+        with patch("http_api_tool.curl_client.BytesIO") as mock_bytesio:
             response_buffer = Mock()
             header_buffer = Mock()
             response_buffer.getvalue.return_value = b""
@@ -616,7 +618,7 @@ X-Custom-Header: test-value
 
             mock_bytesio.side_effect = [response_buffer, header_buffer]
 
-            result = self.verifier.perform_request(mock_curl)
+            result = perform_request(mock_curl)
 
             assert result["success"] is False
             assert result["http_code"] == 0
@@ -638,8 +640,8 @@ class TestIntegration:
         """Set up test fixtures."""
         self.verifier = HTTPAPITester()
 
-    @patch("http_api_tool.verifier.HTTPAPITester.create_curl_handle")
-    @patch("http_api_tool.verifier.HTTPAPITester.perform_request")
+    @patch("http_api_tool.verifier.create_curl_handle")
+    @patch("http_api_tool.verifier.perform_request")
     def test_test_api_success_immediate(
         self, mock_perform: Mock, mock_create_handle: Mock
     ) -> None:
@@ -687,8 +689,8 @@ class TestIntegration:
         assert result["connect_time"] == 0.050
         assert result["time_delay"] == 0  # No delay on first attempt
 
-    @patch("http_api_tool.verifier.HTTPAPITester.create_curl_handle")
-    @patch("http_api_tool.verifier.HTTPAPITester.perform_request")
+    @patch("http_api_tool.verifier.create_curl_handle")
+    @patch("http_api_tool.verifier.perform_request")
     @patch("time.sleep")  # Mock sleep to speed up test
     def test_test_api_success_with_retry(
         self, mock_sleep: Mock, mock_perform: Mock, mock_create_handle: Mock
@@ -752,8 +754,8 @@ class TestIntegration:
         # Verify sleep was called
         mock_sleep.assert_called_once_with(1)
 
-    @patch("http_api_tool.verifier.HTTPAPITester.create_curl_handle")
-    @patch("http_api_tool.verifier.HTTPAPITester.perform_request")
+    @patch("http_api_tool.verifier.create_curl_handle")
+    @patch("http_api_tool.verifier.perform_request")
     @patch("time.sleep")
     def test_test_api_with_regex_success(
         self, _mock_sleep: Mock, mock_perform: Mock, mock_create_handle: Mock
@@ -801,8 +803,8 @@ class TestIntegration:
         assert result["response_http_code"] == 200
         assert result["regex_match"] is True
 
-    @patch("http_api_tool.verifier.HTTPAPITester.create_curl_handle")
-    @patch("http_api_tool.verifier.HTTPAPITester.perform_request")
+    @patch("http_api_tool.verifier.create_curl_handle")
+    @patch("http_api_tool.verifier.perform_request")
     def test_test_api_response_time_exceeded(
         self, mock_perform: Mock, mock_create_handle: Mock
     ) -> None:
@@ -848,8 +850,8 @@ class TestIntegration:
         assert result["response_http_code"] == 200
         assert result["response_time_exceeded"] is True
 
-    @patch("http_api_tool.verifier.HTTPAPITester.create_curl_handle")
-    @patch("http_api_tool.verifier.HTTPAPITester.perform_request")
+    @patch("http_api_tool.verifier.create_curl_handle")
+    @patch("http_api_tool.verifier.perform_request")
     @patch("time.sleep")
     def test_test_api_exhausted_retries(
         self, _mock_sleep: Mock, mock_perform: Mock, mock_create_handle: Mock
