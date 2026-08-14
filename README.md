@@ -100,7 +100,7 @@ docker run --rm --entrypoint=/usr/local/bin/uv \
 - **Supported HTTP Methods**: Supports GET, POST, PUT, PATCH, DELETE, HEAD, OPTIONS
 - **Authentication**: Basic Auth via auth_string and custom headers support
 - **Response Validation**: Status code, regex pattern matching, response time limits
-- **Retry Logic**: Configurable exponential backoff with jitter
+- **Retry Logic**: Exponential backoff, doubling up to a configurable cap
 - **Dual Usage**: Works as both a CLI tool and GitHub Action
 - **Robust Error Handling**: Detailed error messages and proper exit codes
 - **JSON Safety**: Uses pycurl instead of shell commands to avoid escaping issues
@@ -218,7 +218,7 @@ uv run python -m http_api_tool test \
 | `url`                   | URL of API server/interface to check                                 | Yes      | -                  |
 | `auth_string`           | Authentication string, colon separated username/password             | No       | -                  |
 | `service_name`          | Name of HTTP/HTTPS API service tested                                | No       | `API Service`      |
-| `initial_sleep_time`    | Time in seconds between API service connection attempts              | No       | `1`                |
+| `initial_sleep_time`    | Delay in seconds before the first retry, doubling thereafter         | No       | `1`                |
 | `max_delay`             | Max delay in seconds between retries                                 | No       | `30`               |
 | `retries`               | Number of retries before declaring service unavailable               | No       | `3`                |
 | `expected_http_code`    | HTTP response code to accept from the API service                    | No       | `200`              |

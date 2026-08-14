@@ -39,9 +39,9 @@ inputs:
     required: false
     default: 'API Service'
   initial_sleep_time:
-    description: 'Time in seconds between API service connection attempts'
+    description: 'Delay in seconds before the first retry, doubling thereafter'
     required: false
-    # Try once every second
+    # Wait a second before the first retry
     default: '1'
   max_delay:
     description: 'Maximum delay in seconds between retries'

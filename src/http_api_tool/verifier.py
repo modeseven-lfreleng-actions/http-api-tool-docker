@@ -235,7 +235,7 @@ class HTTPAPITester:
         result = _initial_result()
         counter = 0
         time_delay = 0
-        sleep_time = config["initial_sleep_time"]
+        sleep_time = min(config["initial_sleep_time"], config["max_delay"])
 
         while True:
             counter += 1
@@ -267,5 +267,5 @@ class HTTPAPITester:
             self.reporter.log(f"Waiting for {sleep_time} seconds before retrying...")
             time.sleep(sleep_time)
             time_delay += sleep_time
-            sleep_time = min(sleep_time * (2 ** (counter - 1)), config["max_delay"])
+            sleep_time = min(sleep_time * 2, config["max_delay"])
             self.reporter.log(f"Sleep/wait time for next attempt: {sleep_time} seconds")
