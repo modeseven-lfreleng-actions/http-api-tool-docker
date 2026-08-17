@@ -17,6 +17,12 @@ from urllib.parse import urlparse, urlunparse
 import typer
 
 from ._version import __version__
+from .reporting import ActionReporter
+from .sanitize import (
+    sanitize_headers_for_logging,
+    sanitize_request_body_for_logging,
+    sanitize_url_for_logging,
+)
 from .verifier import HTTPAPITester
 
 
@@ -208,56 +214,47 @@ def verify(
 
 def _log_action_parameters(config: dict[str, Any]) -> None:
     """Log the action parameters in a user-friendly format."""
-    from .verifier import HTTPAPITester
-
-    # Create a temporary verifier instance to use sanitization methods
-    temp_verifier = HTTPAPITester()
-
-    print("📋 Configuration:")
-    # Sanitize URL for logging
+    typer.echo("📋 Configuration:")
     url = config.get("url", "Not specified")
     if url != "Not specified":
-        url = temp_verifier.sanitize_url_for_logging(url)
-    print(f"   URL: {url}")
-    print(f"   HTTP Method: {config.get('http_method', 'GET')}")
-    print(f"   Service Name: {config.get('service_name', 'API Service')}")
-    print(f"   Expected HTTP Code: {config.get('expected_http_code', '200')}")
-    print(f"   Retries: {config.get('retries', '3')}")
-    print(f"   Timeout: {config.get('curl_timeout', '5')} seconds")
-    print(f"   SSL Verification: {config.get('verify_ssl', 'true')}")
-    print(f"   Follow Redirects: {config.get('follow_redirects', 'true')}")
+        url = sanitize_url_for_logging(url)
+    typer.echo(f"   URL: {url}")
+    typer.echo(f"   HTTP Method: {config.get('http_method', 'GET')}")
+    typer.echo(f"   Service Name: {config.get('service_name', 'API Service')}")
+    typer.echo(f"   Expected HTTP Code: {config.get('expected_http_code', '200')}")
+    typer.echo(f"   Retries: {config.get('retries', '3')}")
+    typer.echo(f"   Timeout: {config.get('curl_timeout', '5')} seconds")
+    typer.echo(f"   SSL Verification: {config.get('verify_ssl', 'true')}")
+    typer.echo(f"   Follow Redirects: {config.get('follow_redirects', 'true')}")
 
     # Show optional parameters if they're set
     if config.get("regex"):
-        print(f"   Regex Pattern: {config['regex']}")
+        typer.echo(f"   Regex Pattern: {config['regex']}")
     if config.get("request_body"):
-        body = config["request_body"]
-        sanitized_body = temp_verifier.sanitize_request_body_for_logging(body, 100)
-        print(f"   Request Body: {sanitized_body}")
+        sanitized_body = sanitize_request_body_for_logging(config["request_body"], 100)
+        typer.echo(f"   Request Body: {sanitized_body}")
     if config.get("request_headers"):
-        sanitized_headers = temp_verifier.sanitize_headers_for_logging(
-            config["request_headers"]
-        )
-        print(f"   Custom Headers: {sanitized_headers}")
+        sanitized_headers = sanitize_headers_for_logging(config["request_headers"])
+        typer.echo(f"   Custom Headers: {sanitized_headers}")
     if config.get("auth_string"):
-        print("   Authentication: *** (hidden)")
+        typer.echo("   Authentication: *** (hidden)")
     max_time = config.get("max_response_time")
     if max_time and float(max_time) > 0:
-        print(f"   Max Response Time: {max_time} seconds")
+        typer.echo(f"   Max Response Time: {max_time} seconds")
 
     debug_enabled = config.get("debug", "false").lower() == "true"
-    print(f"   Debug Mode: {debug_enabled}")
-    print("=" * 50)
-    print()
+    typer.echo(f"   Debug Mode: {debug_enabled}")
+    typer.echo("=" * 50)
+    typer.echo()
 
 
 def run_github_action() -> None:
     """Run in GitHub Actions mode."""
-    verifier = HTTPAPITester()
+    reporter = ActionReporter()
+    verifier = HTTPAPITester(reporter)
 
-    # Print startup banner
-    print("🚀 HTTP API Tool")
-    print("=" * 50)
+    typer.echo("🚀 HTTP API Tool")
+    typer.echo("=" * 50)
 
     # Map GitHub Action inputs to function parameters
     config = {}
@@ -306,7 +303,6 @@ def run_github_action() -> None:
         "show_header_json": "false",
     }
 
-    # Get inputs from environment with defaults
     for param, env_var in input_mappings.items():
         value = os.environ.get(env_var, defaults.get(param))
         if value is not None:
@@ -316,32 +312,27 @@ def run_github_action() -> None:
     if "url" in config:
         config["url"] = _transform_localhost_url(config["url"])
 
-    # Log the configuration
     _log_action_parameters(config)
 
     try:
         result = verifier.test_api(**config)
 
-        # Write outputs to GitHub Actions
         for key, value in result.items():
-            # Convert boolean values to lowercase strings for GitHub Actions
-            # Note: result dict contains mixed types: bool, int, float, str
-            value_any: Any = value  # Help MyPy understand mixed types
+            # Note: result holds mixed types (bool, int, float, str), and
+            # GitHub Actions expects lowercase booleans.
+            value_any: Any = value
             if isinstance(value_any, bool):
                 output_value = str(value_any).lower()
             else:
-                # Handle non-boolean values (int, float, str, etc.)
                 output_value = str(value_any)
-            verifier.write_github_output(key, output_value)
+            reporter.write_github_output(key, output_value)
 
-        # Show completion message
-        print()
-        print("✅ HTTP API Tool")
-        print("=" * 50)
+        typer.echo()
+        typer.echo("✅ HTTP API Tool")
+        typer.echo("=" * 50)
 
     except Exception as e:
-        # Only log once to avoid duplication
-        print(f"Error: {e}", file=sys.stderr)
+        typer.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
 

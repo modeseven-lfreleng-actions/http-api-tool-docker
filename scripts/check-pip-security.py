@@ -21,9 +21,7 @@ def main() -> int:
         description="Check GitHub workflows for pip install commands without SHA hashes"
     )
     parser.add_argument(
-        "files",
-        nargs="*",
-        help="Files to check (if empty, checks all workflow files)"
+        "files", nargs="*", help="Files to check (if empty, checks all workflow files)"
     )
 
     args = parser.parse_args()
@@ -33,9 +31,11 @@ def main() -> int:
         files_to_check = [Path(f) for f in args.files]
     else:
         # Default to checking all workflow files
-        workflow_dir = Path('.github/workflows')
+        workflow_dir = Path(".github/workflows")
         if workflow_dir.exists():
-            files_to_check = list(workflow_dir.glob('*.yml')) + list(workflow_dir.glob('*.yaml'))
+            files_to_check = list(workflow_dir.glob("*.yml")) + list(
+                workflow_dir.glob("*.yaml")
+            )
         else:
             print("No .github/workflows directory found", file=sys.stderr)
             return 1
@@ -43,7 +43,7 @@ def main() -> int:
     violation_count = 0
 
     for file_path in files_to_check:
-        if not file_path.exists() or file_path.suffix not in ['.yml', '.yaml']:
+        if not file_path.exists() or file_path.suffix not in [".yml", ".yaml"]:
             continue
 
         violations = check_file_for_violations(file_path)
@@ -60,7 +60,7 @@ def main() -> int:
 def check_file_for_violations(file_path: Path) -> int:
     """Check a single file for pip install violations."""
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
     except (OSError, UnicodeDecodeError) as e:
         print(f"Warning: Could not read {file_path}: {e}", file=sys.stderr)
@@ -74,15 +74,15 @@ def check_file_for_violations(file_path: Path) -> int:
         line = lines[i].strip()
 
         # Check for pip install commands
-        if re.search(r'\bpip\s+.*install\b', line):
+        if re.search(r"\bpip\s+.*install\b", line):
             # Collect full command (may span multiple lines)
             command_lines = [line]
-            while line.endswith('\\') and i + 1 < len(lines):
+            while line.endswith("\\") and i + 1 < len(lines):
                 i += 1
                 line = lines[i].strip()
                 command_lines.append(line)
 
-            full_command = ' '.join(command_lines)
+            full_command = " ".join(command_lines)
 
             if is_violation(full_command):
                 violations += 1
@@ -99,10 +99,10 @@ def is_violation(command: str) -> bool:
     """Check if a pip install command violates security requirements."""
     # Skip safe patterns
     safe_patterns = [
-        r'pip\s+.*install\s+--upgrade\s+pip\s*$',  # pip upgrade itself
-        r'pip\s+.*install\s+-r\s+',  # requirements file
-        r'pip\s+.*install\s+-e\s+',  # editable installs
-        r'pip\s+.*install\s+\.\s*$',  # current directory
+        r"pip\s+.*install\s+--upgrade\s+pip\s*$",  # pip upgrade itself
+        r"pip\s+.*install\s+-r\s+",  # requirements file
+        r"pip\s+.*install\s+-e\s+",  # editable installs
+        r"pip\s+.*install\s+\.\s*$",  # current directory
     ]
 
     for pattern in safe_patterns:
@@ -110,8 +110,8 @@ def is_violation(command: str) -> bool:
             return False
 
     # Check for package with version constraints
-    has_version = re.search(r'\b[a-zA-Z0-9_-]+\s*[><=!~]+\s*[0-9.]+', command)
-    has_hash = '--hash=' in command or '--hash ' in command
+    has_version = re.search(r"\b[a-zA-Z0-9_-]+\s*[><=!~]+\s*[0-9.]+", command)
+    has_hash = "--hash=" in command or "--hash " in command
 
     return bool(has_version and not has_hash)
 
@@ -120,11 +120,15 @@ def print_security_guidance() -> None:
     """Print security guidance for fixing violations."""
     print()
     print("🔒 Security Requirement:")
-    print("All pip install commands with version constraints must use SHA256 hash pinning")
+    print(
+        "All pip install commands with version constraints must use SHA256 hash pinning"
+    )
     print("to prevent supply chain attacks and ensure deterministic builds.")
     print()
     print("Recommended approach:")
-    print("  Use the provided script to generate requirements with complete dependency tree:")
+    print(
+        "  Use the provided script to generate requirements with complete dependency tree:"
+    )
     print("  python3 scripts/generate_requirements.py \\")
     print("    --platform linux_x86_64 \\")
     print("    --python-version 311 \\")
@@ -140,7 +144,9 @@ def print_security_guidance() -> None:
     print("  pip install --require-hashes -r requirements.txt")
     print()
     print("Note: --hash is a per-requirement option for requirements files only,")
-    print("      not a command-line option for 'pip install'. When using --require-hashes,")
+    print(
+        "      not a command-line option for 'pip install'. When using --require-hashes,"
+    )
     print("      ALL dependencies (including transitive ones) must have hashes.")
     print()
     print("For more information, see:")
