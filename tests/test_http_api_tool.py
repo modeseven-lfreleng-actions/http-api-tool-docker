@@ -625,6 +625,50 @@ X-Custom-Header: test-value
             assert result["curl_error"] == (7, "Failed to connect to host")
 
 
+def failed_response() -> dict[str, Any]:
+    """Build a perform_request result representing a connection failure."""
+    return {
+        "success": False,
+        "http_code": 0,
+        "total_time": 0,
+        "connect_time": 0,
+        "body_size": 0,
+        "header_size": 0,
+        "response_body": b"",
+        "response_headers": "",
+        "header_json": "{}",
+        "curl_error": (7, "Failed to connect"),
+    }
+
+
+def retry_config(**overrides: Any) -> dict[str, Any]:
+    """Build a test_api config, applying any per-test overrides."""
+    config: dict[str, Any] = {
+        "url": "https://example.com",
+        "service_name": "Test API",
+        "retries": 2,
+        "expected_http_code": 200,
+        "initial_sleep_time": 1,
+        "max_delay": 30,
+        "curl_timeout": 5,
+        "http_method": "GET",
+        "verify_ssl": True,
+        "connection_reuse": True,
+        "follow_redirects": True,
+        "debug": False,
+        "include_response_body": False,
+        "max_response_time": 0,
+        "fail_on_timeout": False,
+    }
+    config.update(overrides)
+    return config
+
+
+def recorded_sleeps(mock_sleep: Mock) -> list[float]:
+    """Extract the interval passed to each time.sleep call, in order."""
+    return [call.args[0] for call in mock_sleep.call_args_list]
+
+
 @pytest.mark.integration
 class TestIntegration:
     """Integration tests for the complete verification flow.
@@ -857,44 +901,82 @@ class TestIntegration:
         self, _mock_sleep: Mock, mock_perform: Mock, mock_create_handle: Mock
     ) -> None:
         """Test API verification with exhausted retries."""
-        # Mock curl handle
-        mock_curl = Mock()
-        mock_create_handle.return_value = mock_curl
-
-        # Mock consistent failures
-        mock_perform.return_value = {
-            "success": False,
-            "http_code": 0,
-            "total_time": 0,
-            "connect_time": 0,
-            "body_size": 0,
-            "header_size": 0,
-            "response_body": b"",
-            "response_headers": "",
-            "header_json": "{}",
-            "curl_error": (7, "Failed to connect"),
-        }
-
-        config = {
-            "url": "https://example.com",
-            "service_name": "Test API",
-            "retries": 2,
-            "expected_http_code": 200,
-            "initial_sleep_time": 1,
-            "max_delay": 30,
-            "curl_timeout": 5,
-            "http_method": "GET",
-            "verify_ssl": True,
-            "connection_reuse": True,
-            "follow_redirects": True,
-            "debug": False,
-            "include_response_body": False,
-            "max_response_time": 0,
-            "fail_on_timeout": False,
-        }
+        mock_create_handle.return_value = Mock()
+        mock_perform.return_value = failed_response()
 
         with pytest.raises(SystemExit):
+            _ = self.verifier.test_api(**retry_config(retries=2))
+
+    @patch("http_api_tool.verifier.create_curl_handle")
+    @patch("http_api_tool.verifier.perform_request")
+    @patch("time.sleep")
+    def test_test_api_backoff_doubles_each_attempt(
+        self, mock_sleep: Mock, mock_perform: Mock, mock_create_handle: Mock
+    ) -> None:
+        """Test that the retry interval doubles between attempts."""
+        mock_create_handle.return_value = Mock()
+        mock_perform.return_value = failed_response()
+
+        config = retry_config(retries=5, initial_sleep_time=1, max_delay=30)
+        with pytest.raises(SystemExit):
             _ = self.verifier.test_api(**config)
+
+        # Five attempts means four waits, each twice the one before it.
+        assert recorded_sleeps(mock_sleep) == [1, 2, 4, 8]
+
+    @patch("http_api_tool.verifier.create_curl_handle")
+    @patch("http_api_tool.verifier.perform_request")
+    @patch("time.sleep")
+    def test_test_api_backoff_stops_at_max_delay(
+        self, mock_sleep: Mock, mock_perform: Mock, mock_create_handle: Mock
+    ) -> None:
+        """Test that the retry interval never exceeds max_delay."""
+        mock_create_handle.return_value = Mock()
+        mock_perform.return_value = failed_response()
+
+        config = retry_config(retries=4, initial_sleep_time=10, max_delay=15)
+        with pytest.raises(SystemExit):
+            _ = self.verifier.test_api(**config)
+
+        assert recorded_sleeps(mock_sleep) == [10, 15, 15]
+
+    @patch("http_api_tool.verifier.create_curl_handle")
+    @patch("http_api_tool.verifier.perform_request")
+    @patch("time.sleep")
+    def test_test_api_backoff_caps_the_first_wait(
+        self, mock_sleep: Mock, mock_perform: Mock, mock_create_handle: Mock
+    ) -> None:
+        """Test that max_delay caps initial_sleep_time as well."""
+        mock_create_handle.return_value = Mock()
+        mock_perform.return_value = failed_response()
+
+        config = retry_config(retries=3, initial_sleep_time=60, max_delay=30)
+        with pytest.raises(SystemExit):
+            _ = self.verifier.test_api(**config)
+
+        assert recorded_sleeps(mock_sleep) == [30, 30]
+
+    @patch("http_api_tool.verifier.create_curl_handle")
+    @patch("http_api_tool.verifier.perform_request")
+    @patch("time.sleep")
+    def test_test_api_reports_total_delay_on_failure(
+        self, _mock_sleep: Mock, mock_perform: Mock, mock_create_handle: Mock
+    ) -> None:
+        """Test that time_delay accumulates every backoff interval."""
+        mock_create_handle.return_value = Mock()
+        mock_perform.return_value = failed_response()
+        recorded: dict[str, Any] = {}
+
+        def capture(result: dict[str, Any], *_args: Any) -> None:
+            recorded.update(result)
+
+        config = retry_config(retries=4, initial_sleep_time=1, max_delay=30)
+        with patch.object(HTTPAPITester, "_report_exhausted", side_effect=capture):
+            with pytest.raises(SystemExit):
+                _ = self.verifier.test_api(**config)
+
+        # Waits of 1, 2, and 4 seconds precede the fourth and final attempt.
+        assert recorded["time_delay"] == 7
 
     # NOTE: Response time testing is now covered by the testing.yaml workflow
     # using a local go-httpbin service to avoid external dependencies in unit tests.

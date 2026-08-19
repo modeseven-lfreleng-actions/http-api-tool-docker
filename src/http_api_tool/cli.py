@@ -113,7 +113,7 @@ def verify(
         "API Service", help="Name of HTTP/HTTPS API service tested"
     ),
     initial_sleep_time: int = typer.Option(
-        1, help="Time in seconds between API service connection attempts"
+        1, help="Delay in seconds before the first retry, doubling thereafter"
     ),
     max_delay: int = typer.Option(30, help="Maximum delay in seconds between retries"),
     retries: int = typer.Option(
