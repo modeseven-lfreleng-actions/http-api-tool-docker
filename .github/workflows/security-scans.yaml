@@ -44,7 +44,7 @@ jobs:
   sonarqube-cloud:
     name: "SonarQube Cloud"
     # yamllint disable-line rule:line-length
-    uses: lfit/releng-reusable-workflows/.github/workflows/reuse-sonarqube-cloud.yaml@87eacd1f8322263ebbc1411ce2ea82bab10ed091 # v0.10.3
+    uses: lfit/releng-reusable-workflows/.github/workflows/reuse-sonarqube-cloud.yaml@fb907909b12bbaf262de6b24fcafd181cabe6b24 # v0.10.4
     # Neither scan writes a cache; deny writes under branch_protection_rule
     cache-mode: read
     permissions:
