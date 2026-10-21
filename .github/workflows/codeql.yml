@@ -22,12 +22,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  scan:
-    name: 'Audit Repository'
-    # yamllint disable-line rule:line-length
-    uses: lfit/releng-reusable-workflows/.github/workflows/reuse-python-codeql.yaml@fb907909b12bbaf262de6b24fcafd181cabe6b24 # v0.10.4
+  codeql:
+    name: 'CodeQL'
     permissions:
-      security-events: write  # Upload CodeQL results to code-scanning
-      packages: read  # Fetch internal or private CodeQL packs
-      actions: read  # Only required for workflows in private repositories
-      contents: read
+      contents: read  # checkout
+      security-events: write  # upload results to code scanning
+      packages: read  # fetch internal or private CodeQL packs
+      actions: read  # the upload reads run info on private repositories
+    # yamllint disable-line rule:line-length
+    uses: lfreleng-actions/security-workflows/.github/workflows/codeql.yaml@ef6c0d9930feedb274067703b50eeebe5ab859b3  # v0.9.5
+    with:
+      languages: 'python,actions'
