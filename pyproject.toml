@@ -24,7 +24,6 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -44,7 +43,7 @@ keywords = [
     "monitoring",
     "health-check",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
     "pycurl>=7.45.0",
     "typer>=0.9.0",
@@ -149,7 +148,7 @@ precision = 2
 directory = "coverage_html_report"
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
@@ -196,7 +195,7 @@ color = true
 omit-covered-files = false
 
 [tool.basedpyright]
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 typeCheckingMode = "standard"
 reportMissingImports = "warning"
 reportUninitializedInstanceVariable = "warning"
