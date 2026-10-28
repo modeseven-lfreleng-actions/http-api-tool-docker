@@ -541,7 +541,7 @@ uv run pytest tests/ -v
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.11+
 - UV (Fast Python package installer and resolver)
 - pycurl
 - typer (for CLI usage)
