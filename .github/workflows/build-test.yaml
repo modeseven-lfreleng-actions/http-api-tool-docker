@@ -76,7 +76,7 @@ jobs:
     steps:
       # Harden the runner
       - name: Harden Runner
-        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
         with:
           egress-policy: audit
 
@@ -132,7 +132,7 @@ jobs:
     steps:
       # Set up go-httpbin for testing
       - name: Setup go-httpbin HTTPS service
-        uses: lfreleng-actions/go-httpbin-action@b0fcc716270b4975172449a293173e679773d17e # v0.1.6
+        uses: lfreleng-actions/go-httpbin-action@692bf3b759b746041e9cc2eebec5a6006e6d6041  # v0.1.7
         id: go-httpbin
         with:
           debug: 'true'
@@ -203,7 +203,7 @@ jobs:
     steps:
       # Harden the runner
       - name: Harden Runner
-        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
         with:
           egress-policy: audit
 
@@ -218,7 +218,7 @@ jobs:
 
       # Login to GitHub Container Registry
       - name: Login to Container Registry
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6  # v4.7.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -285,7 +285,7 @@ jobs:
       GH_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
     steps:
       # Harden the runner used by this workflow
-      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
         with:
           egress-policy: 'audit'
 
@@ -296,7 +296,7 @@ jobs:
       # Setup Python with enhanced caching
       - name: Set up Python
         id: setup-python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           # Do NOT use hard coded Python; extract from pyproject.toml
           python-version-file: 'pyproject.toml'
@@ -335,7 +335,7 @@ jobs:
     timeout-minutes: 12
     steps:
       # Harden the runner used by this workflow
-      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
         with:
           egress-policy: audit
 
@@ -346,7 +346,7 @@ jobs:
       # Setup Python with comprehensive caching
       - name: Set up Python
         id: setup-python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
@@ -386,7 +386,7 @@ jobs:
     timeout-minutes: 10
     steps:
       # Harden the runner used by this workflow
-      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
         with:
           egress-policy: 'audit'
 
@@ -397,7 +397,7 @@ jobs:
       # Setup Python with comprehensive caching
       - name: Set up Python
         id: setup-python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
@@ -434,7 +434,7 @@ jobs:
     timeout-minutes: 15
     steps:
       # Harden the runner used by this workflow
-      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
         with:
           egress-policy: 'audit'
 
@@ -445,7 +445,7 @@ jobs:
       # Setup Python with comprehensive caching
       - name: Set up Python
         id: setup-python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           python-version-file: 'pyproject.toml'
           cache: 'pip'
@@ -466,7 +466,7 @@ jobs:
             uv-cli-${{ runner.os }}-
 
       - name: Install UV
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
 
       - name: Install project dependencies
         run: |
@@ -483,7 +483,7 @@ jobs:
       # Start go-httpbin service for testing
       - name: Setup go-httpbin service
         id: go-httpbin
-        uses: lfreleng-actions/go-httpbin-action@b0fcc716270b4975172449a293173e679773d17e # v0.1.6
+        uses: lfreleng-actions/go-httpbin-action@692bf3b759b746041e9cc2eebec5a6006e6d6041  # v0.1.7
         with:
           port: '8080'
           debug: 'true'
@@ -561,14 +561,14 @@ jobs:
     timeout-minutes: 10
     steps:
       # Harden the runner used by this workflow
-      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
         with:
           egress-policy: 'audit'
 
       # Start go-httpbin service for testing
       - name: Setup go-httpbin service
         id: go-httpbin
-        uses: lfreleng-actions/go-httpbin-action@b0fcc716270b4975172449a293173e679773d17e # v0.1.6
+        uses: lfreleng-actions/go-httpbin-action@692bf3b759b746041e9cc2eebec5a6006e6d6041  # v0.1.7
         with:
           port: '8080'
           debug: 'true'
@@ -618,14 +618,14 @@ jobs:
     timeout-minutes: 10
     steps:
       # Harden the runner used by this workflow
-      - uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
         with:
           egress-policy: 'audit'
 
       # Start go-httpbin service for testing
       - name: Setup go-httpbin service
         id: go-httpbin
-        uses: lfreleng-actions/go-httpbin-action@b0fcc716270b4975172449a293173e679773d17e # v0.1.6
+        uses: lfreleng-actions/go-httpbin-action@692bf3b759b746041e9cc2eebec5a6006e6d6041  # v0.1.7
         with:
           port: '8080'
           debug: 'true'
@@ -730,14 +730,14 @@ jobs:
     steps:
       # Harden the runner used by this workflow
       - name: Harden Runner
-        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
         with:
           egress-policy: audit
 
       # Start go-httpbin service for testing
       - name: Setup go-httpbin service
         id: go-httpbin
-        uses: lfreleng-actions/go-httpbin-action@b0fcc716270b4975172449a293173e679773d17e # v0.1.6
+        uses: lfreleng-actions/go-httpbin-action@692bf3b759b746041e9cc2eebec5a6006e6d6041  # v0.1.7
         with:
           port: '8080'
           debug: 'true'
@@ -797,7 +797,7 @@ jobs:
     steps:
       # Harden the runner used by this workflow
       - name: Harden Runner
-        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
         with:
           egress-policy: audit
 
@@ -811,7 +811,7 @@ jobs:
 
       # Login to Container Registry
       - name: Login to Container Registry
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6  # v4.7.0
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -829,7 +829,7 @@ jobs:
       # Start go-httpbin service for testing
       - name: Setup go-httpbin service
         id: go-httpbin
-        uses: lfreleng-actions/go-httpbin-action@b0fcc716270b4975172449a293173e679773d17e # v0.1.6
+        uses: lfreleng-actions/go-httpbin-action@692bf3b759b746041e9cc2eebec5a6006e6d6041  # v0.1.7
         with:
           port: '8080'
           debug: 'true'
@@ -845,7 +845,7 @@ jobs:
 
           # Test the http-api-tool against go-httpbin with HTTPS
           docker run --rm --network host \
-            -v "$GITHUB_WORKSPACE/$CA_BUNDLE:/tmp/ca-bundle.pem:ro" \
+            -v "$CA_BUNDLE:/tmp/ca-bundle.pem:ro" \
             "$IMAGE_TAG" \
             test \
             --url "$SERVICE_URL/get" \
@@ -872,7 +872,7 @@ jobs:
     steps:
       # Harden the runner
       - name: Harden Runner
-        uses: step-security/harden-runner@dc2769abcc0fcfbadfc1df54081c1608579ef6b2 # v2.22.2
+        uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43  # v2.22.3
         with:
           egress-policy: audit
 
@@ -883,7 +883,7 @@ jobs:
 
       # Setup Python with caching
       - name: Set up Python
-        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0  # v7.1.0
         with:
           # Do NOT use hard coded Python; extract from pyproject.toml
           python-version-file: 'pyproject.toml'
@@ -905,7 +905,7 @@ jobs:
 
       # Install UV
       - name: Install UV
-        uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
 
       # Install project dependencies with dev extras (includes bandit)
       - name: Install project dependencies

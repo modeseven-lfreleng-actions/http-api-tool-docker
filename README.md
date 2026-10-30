@@ -458,7 +458,7 @@ HTTPS testing service:
 ```yaml
 steps:
   - name: Setup go-httpbin HTTPS service
-    uses: lfreleng-actions/go-httpbin-action@fd9c3701056fc2e667542ac66b4a63c44faea6c5 # v0.1.0
+    uses: lfreleng-actions/go-httpbin-action@692bf3b759b746041e9cc2eebec5a6006e6d6041 # v0.1.7
     id: httpbin
     with:
       debug: 'true'
@@ -468,7 +468,7 @@ steps:
     uses: lfreleng-actions/http-api-tool-docker@main
     with:
       url: 'https://localhost:8080/get'
-      ca_bundle_path: 'mkcert-ca.pem'
+      ca_bundle_path: '${{ steps.httpbin.outputs.ca-cert-path }}'
       expected_http_code: '200'
 ```
 
