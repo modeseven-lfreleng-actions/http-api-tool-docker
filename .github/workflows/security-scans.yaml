@@ -34,7 +34,7 @@ jobs:
     permissions:
       contents: read  # Reusable scan job checks out the repo
     # yamllint disable-line rule:line-length
-    uses: lfit/releng-reusable-workflows/.github/workflows/reuse-sonatype-lifecycle.yaml@fb907909b12bbaf262de6b24fcafd181cabe6b24 # v0.10.4
+    uses: lfit/releng-reusable-workflows/.github/workflows/reuse-sonatype-lifecycle.yaml@e3bb02dd0d2e5027cde63732fe00f591d6ecec03  # v0.11.0
     # Neither scan writes a cache; deny writes under branch_protection_rule
     cache-mode: read
     secrets:
@@ -44,7 +44,7 @@ jobs:
   sonarqube-cloud:
     name: "SonarQube Cloud"
     # yamllint disable-line rule:line-length
-    uses: lfit/releng-reusable-workflows/.github/workflows/reuse-sonarqube-cloud.yaml@fb907909b12bbaf262de6b24fcafd181cabe6b24 # v0.10.4
+    uses: lfit/releng-reusable-workflows/.github/workflows/reuse-sonarqube-cloud.yaml@e3bb02dd0d2e5027cde63732fe00f591d6ecec03  # v0.11.0
     # Neither scan writes a cache; deny writes under branch_protection_rule
     cache-mode: read
     permissions:
